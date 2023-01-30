@@ -45,7 +45,14 @@ impl<R: io::Read + io::Seek> Pak<R> {
         let mut entries = hashbrown::HashMap::with_capacity(len);
         for _ in 0..len {
             entries.insert(
-                index.read_string()?,
+                format!(
+                    "Game{}",
+                    index
+                        .read_string()?
+                        .splitn(2, "Content")
+                        .last()
+                        .unwrap_or_default()
+                ),
                 super::entry::Entry::new(&mut index, version)?,
             );
         }
