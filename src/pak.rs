@@ -48,11 +48,11 @@ impl<R: io::Read + io::Seek> Pak<R> {
                 {
                     let mut path = index.read_string()?;
                     if let Some(pos) = path.find("Content") {
-                        path.replace_range(0..pos + 7, "Game");
+                        path.replace_range(1..pos + 7, "Game");
                     } else if let Some(pos) = path.find("Config") {
-                        path.drain(0..pos);
+                        path.drain(1..pos);
                     } else if let Some(pos) = path.find("Plugins") {
-                        path.drain(0..pos);
+                        path.drain(1..pos);
                     }
                     path
                 },
