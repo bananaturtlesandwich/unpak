@@ -27,13 +27,13 @@ pub enum Version {
     PathHashIndex,         // index format overhauled
 }
 
-// strum shouldn't need to be installed by users
 impl Version {
+    // strum shouldn't need to be installed by users
     pub fn iter() -> VersionIter {
         <Version as strum::IntoEnumIterator>::iter()
     }
 
-    pub fn size(self) -> i64 {
+    pub fn footer_size(self) -> i64 {
         // (magic + version): u32 + (offset + size): u64 + hash: [u8; 20]
         let mut size = 4 + 4 + 8 + 8 + 20;
         if self >= Version::EncryptionKeyUuid {
@@ -58,6 +58,8 @@ impl Version {
         }
         size
     }
+
+    pub fn entry_size(&self) -> i64 {}
 }
 
 #[derive(Default, Clone, Copy, PartialEq, Eq, Debug, strum::Display, strum::EnumString)]

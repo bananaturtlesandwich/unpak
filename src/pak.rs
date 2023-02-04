@@ -19,7 +19,7 @@ impl<R: io::Read + io::Seek> Pak<R> {
         use super::ext::ReadExt;
         use byteorder::{ReadBytesExt, LE};
         // read footer to get index, encryption & compression info
-        reader.seek(io::SeekFrom::End(-version.size()))?;
+        reader.seek(io::SeekFrom::End(-version.footer_size()))?;
         let footer = super::footer::Footer::new(&mut reader, version)?;
         // read index to get all the entry info
         reader.seek(io::SeekFrom::Start(footer.index_offset))?;
@@ -54,21 +54,63 @@ impl<R: io::Read + io::Seek> Pak<R> {
         }
         let mut index = io::Cursor::new(index);
         let mount_point = index.read_string()?;
-        let len = index.read_u32::<LE>()? as usize;
         // with_capacity doesn't set capacity exactly
-        let mut entries = hashbrown::HashMap::with_capacity(len);
-        match version >= Version::PathHashIndex {
-            true => {
-                todo!();
+        let mut entries = hashbrown::HashMap::new();
+        if version >= Version::PathHashIndex {
+            // path hash seed
+            index.read_u64::<LE>()?;
+            // path hash
+            if index.read_u32::<LE>()? != 0 {
+                let offset = index.read_u64::<LE>()?;
+                let size = index.read_u64::<LE>()?;
+                // hash
+                index.read_guid()?;
+                reader.seek(io::SeekFrom::Start(offset))?;
+                let mut path_hash = reader.read_len(size as usize)?;
+                if footer.encrypted {
+                    decrypt(key.as_ref(), &mut path_hash)?;
+                }
+                // wait what do i do with this information :p
             }
-            false => {
-                for _ in 0..len {
-                    entries.insert(
-                        index.read_name()?,
-                        super::entry::Entry::new(&mut index, version)?,
-                    );
+            let mut files = Vec::new();
+            // full directory index
+            if index.read_u32::<LE>()? != 0 {
+                let offset = index.read_u64::<LE>()?;
+                let size = index.read_u64::<LE>()?;
+                // hash
+                index.read_guid()?;
+                reader.seek(io::SeekFrom::Start(offset))?;
+                let mut full_dir = reader.read_len(size as usize)?;
+                if footer.encrypted {
+                    decrypt(key.as_ref(), &mut full_dir)?;
+                }
+                let mut full_dir = io::Cursor::new(full_dir);
+                for _ in 0..full_dir.read_u32::<LE>()? {
+                    let dir = full_dir.read_name()?;
+                    for _ in 0..full_dir.read_u32::<LE>()? {
+                        files.push((
+                            dir.clone() + &full_dir.read_string()?,
+                            full_dir.read_u32::<LE>()?,
+                        ));
+                    }
                 }
             }
+            let size = index.read_u32::<LE>()? as usize;
+            let mut encoded = io::Cursor::new(index.read_len(size)?);
+            for (file, offset) in files {
+                use io::Seek;
+                encoded.seek(io::SeekFrom::Start(offset as u64))?;
+                entries.insert(
+                    file,
+                    super::entry::Entry::from_encoded(&mut reader, version)?,
+                );
+            }
+        }
+        for _ in 0..index.read_u32::<LE>()? as usize {
+            entries.insert(
+                index.read_name()?,
+                super::entry::Entry::new(&mut index, version)?,
+            );
         }
 
         Ok(Self {

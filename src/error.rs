@@ -21,10 +21,10 @@ pub enum Error {
     Bool(u8),
     #[error("found magic of {0:#x} instead of {:#x}", super::MAGIC)]
     Magic(u32),
-    #[error("used version {used} but pak is version {version}")]
+    #[error("used {version} but pak is {actual}")]
     Version {
-        used: super::Version,
         version: super::Version,
+        actual: super::Version,
     },
     #[error("pak is encrypted but no key was provided")]
     Encrypted,
