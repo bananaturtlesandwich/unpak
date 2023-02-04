@@ -3,9 +3,9 @@ use byteorder::{ReadBytesExt, LE};
 use std::io;
 
 #[derive(Debug)]
-pub struct Block {
-    pub start: u64,
-    pub end: u64,
+struct Block {
+    start: u64,
+    end: u64,
 }
 
 impl Block {
@@ -19,15 +19,11 @@ impl Block {
 
 #[derive(Debug)]
 pub struct Entry {
-    pub offset: u64,
-    pub compressed: u64,
-    pub uncompressed: u64,
-    pub compression: Compression,
-    pub timestamp: Option<u64>,
-    pub hash: [u8; 20],
-    pub blocks: Option<Vec<Block>>,
-    pub encrypted: bool,
-    pub block_uncompressed: Option<u32>,
+    offset: u64,
+    compressed: u64,
+    compression: Compression,
+    blocks: Option<Vec<Block>>,
+    encrypted: bool,
 }
 
 impl Entry {
@@ -35,32 +31,34 @@ impl Entry {
         // since i need the compression flags, i have to store these as variables which is mildly annoying
         let offset = reader.read_u64::<LE>()?;
         let compressed = reader.read_u64::<LE>()?;
-        let uncompressed = reader.read_u64::<LE>()?;
+        // uncompressed
+        reader.read_u64::<LE>()?;
         let compression = match reader.read_u32::<LE>()? {
             0x01 | 0x10 | 0x20 => Compression::Zlib,
             _ => Compression::None,
         };
+        // timestamp
+        if version == Version::Initial {
+            reader.read_u64::<LE>()?;
+        }
+        // hash
+        reader.read_guid()?;
+        let blocks =
+            match version >= Version::CompressionEncryption && compression != Compression::None {
+                true => Some(reader.read_array(Block::new)?),
+                false => None,
+            };
+        let encrypted = version >= Version::CompressionEncryption && reader.read_bool()?;
+        // block uncompressed
+        if version >= Version::CompressionEncryption {
+            reader.read_u32::<LE>()?;
+        }
         Ok(Self {
             offset,
             compressed,
-            uncompressed,
             compression,
-            timestamp: match version == Version::Initial {
-                true => Some(reader.read_u64::<LE>()?),
-                false => None,
-            },
-            hash: reader.read_guid()?,
-            blocks: match version >= Version::CompressionEncryption
-                && compression != Compression::None
-            {
-                true => Some(reader.read_array(Block::new)?),
-                false => None,
-            },
-            encrypted: version >= Version::CompressionEncryption && reader.read_bool()?,
-            block_uncompressed: match version >= Version::CompressionEncryption {
-                true => Some(reader.read_u32::<LE>()?),
-                false => None,
-            },
+            blocks,
+            encrypted,
         })
     }
 
