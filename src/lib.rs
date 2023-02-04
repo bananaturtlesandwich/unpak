@@ -21,7 +21,7 @@ pub enum Version {
     IndexEncryption,       // index encryption support
     RelativeChunkOffsets,  // offsets are relative to header
     DeleteRecords,         // record deletion support
-    EncryptionKeyGuid,     // include key GUID
+    EncryptionKeyUuid,     // include key GUID
     FNameBasedCompression, // compression names included
     FrozenIndex,           // frozen index byte included
 }
@@ -35,7 +35,7 @@ impl Version {
     pub fn size(self) -> i64 {
         // (magic + version): u32 + (offset + size): u64 + hash: [u8; 20]
         let mut size = 4 + 4 + 8 + 8 + 20;
-        if self >= Version::EncryptionKeyGuid {
+        if self >= Version::EncryptionKeyUuid {
             // encryption uuid: u128
             size += 16;
         }
