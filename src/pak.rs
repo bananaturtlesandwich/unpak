@@ -57,6 +57,8 @@ impl<R: io::Read + io::Seek> Pak<R> {
         // with_capacity doesn't set capacity exactly
         let mut entries = hashbrown::HashMap::new();
         if version >= Version::PathHashIndex {
+            // entry count
+            index.read_u32::<LE>()?;
             // path hash seed
             index.read_u64::<LE>()?;
             // path hash
