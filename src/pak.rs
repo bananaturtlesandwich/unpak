@@ -61,16 +61,13 @@ impl<R: io::Read + io::Seek> Pak<R> {
             index.read_u64::<LE>()?;
             // path hash
             if index.read_u32::<LE>()? != 0 {
-                let offset = index.read_u64::<LE>()?;
-                let size = index.read_u64::<LE>()?;
+                // offset
+                index.read_u64::<LE>()?;
+                // size
+                index.read_u64::<LE>()?;
                 // hash
                 index.read_guid()?;
-                reader.seek(io::SeekFrom::Start(offset))?;
-                let mut path_hash = reader.read_len(size as usize)?;
-                if footer.encrypted {
-                    decrypt(key.as_ref(), &mut path_hash)?;
-                }
-                // wait what do i do with this information :p
+                // no need to look at the path hash information
             }
             let mut files = Vec::new();
             // full directory index

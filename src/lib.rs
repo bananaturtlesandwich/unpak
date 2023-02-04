@@ -25,6 +25,7 @@ pub enum Version {
     FNameBasedCompression, // compression names included
     FrozenIndex,           // frozen index byte included
     PathHashIndex,         // index format overhauled
+    Fnv64BugFix,           // *shrug*
 }
 
 impl Version {
