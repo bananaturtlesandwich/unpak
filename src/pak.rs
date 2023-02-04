@@ -25,44 +25,52 @@ impl<R: io::Read + io::Seek> Pak<R> {
         reader.seek(io::SeekFrom::Start(footer.index_offset))?;
         let mut index = reader.read_len(footer.index_size as usize)?;
         let mut key = None;
+        fn decrypt(key: Option<&aes::Aes256Dec>, bytes: &mut [u8]) -> Result<(), super::Error> {
+            match key {
+                Some(key) => {
+                    use aes::cipher::BlockDecrypt;
+                    for chunk in bytes.chunks_mut(16) {
+                        key.decrypt_block(aes::Block::from_mut_slice(chunk))
+                    }
+                    Ok(())
+                }
+                None => Err(super::Error::Encrypted),
+            }
+        }
         // decrypt index if needed
         if footer.encrypted {
             let Some(hash) = key_hash else {
                 return Err(super::Error::Encrypted);
             };
-            use aes::cipher::{BlockDecrypt, KeyInit};
+            use aes::cipher::KeyInit;
             use base64::Engine;
-            let Ok(decrypter)= aes::Aes256Dec::new_from_slice(
+            let Ok(dec)= aes::Aes256Dec::new_from_slice(
                 &base64::engine::general_purpose::STANDARD.decode(hash)?
             ) else {
                 return Err(super::Error::Aes)
             };
-            for chunk in index.chunks_mut(16) {
-                decrypter.decrypt_block(aes::Block::from_mut_slice(chunk))
-            }
-            key = Some(decrypter);
+            key = Some(dec);
+            decrypt(key.as_ref(), &mut index)?;
         }
         let mut index = io::Cursor::new(index);
         let mount_point = index.read_string()?;
         let len = index.read_u32::<LE>()? as usize;
         // with_capacity doesn't set capacity exactly
         let mut entries = hashbrown::HashMap::with_capacity(len);
-        for _ in 0..len {
-            entries.insert(
-                {
-                    let mut path = index.read_string()?;
-                    if let Some(pos) = path.find("Content") {
-                        path.replace_range(0..pos + 7, "Game");
-                    } else if let Some(pos) = path.find("Config") {
-                        path.drain(0..pos);
-                    } else if let Some(pos) = path.find("Plugins") {
-                        path.drain(0..pos);
-                    }
-                    format!("/{path}")
-                },
-                super::entry::Entry::new(&mut index, version)?,
-            );
+        match version >= Version::PathHashIndex {
+            true => {
+                todo!();
+            }
+            false => {
+                for _ in 0..len {
+                    entries.insert(
+                        index.read_name()?,
+                        super::entry::Entry::new(&mut index, version)?,
+                    );
+                }
+            }
         }
+
         Ok(Self {
             version,
             mount_point,
