@@ -8,6 +8,7 @@ pub trait ReadExt {
         func: impl FnMut(&mut Self) -> Result<T, super::Error>,
     ) -> Result<Vec<T>, super::Error>;
     fn read_string(&mut self) -> Result<String, super::Error>;
+    fn read_name(&mut self) -> Result<String, super::Error>;
     fn read_len(&mut self, len: usize) -> Result<Vec<u8>, super::Error>;
 }
 
@@ -51,6 +52,18 @@ impl<R: std::io::Read> ReadExt for R {
         // remove the null byte
         buf.pop();
         Ok(buf)
+    }
+
+    fn read_name(&mut self) -> Result<String, crate::Error> {
+        let mut path = self.read_string()?;
+        if let Some(pos) = path.find("Content") {
+            path.replace_range(0..pos + 7, "Game");
+        } else if let Some(pos) = path.find("Config") {
+            path.drain(0..pos);
+        } else if let Some(pos) = path.find("Plugins") {
+            path.drain(0..pos);
+        }
+        Ok(format!("/{path}"))
     }
 
     fn read_len(&mut self, len: usize) -> Result<Vec<u8>, super::Error> {

@@ -24,6 +24,7 @@ pub enum Version {
     EncryptionKeyUuid,     // include key GUID
     FNameBasedCompression, // compression names included
     FrozenIndex,           // frozen index byte included
+    PathHashIndex,         // index format overhauled
 }
 
 // strum shouldn't need to be installed by users
