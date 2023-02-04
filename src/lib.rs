@@ -58,8 +58,6 @@ impl Version {
         }
         size
     }
-
-    pub fn entry_size(&self) -> i64 {}
 }
 
 #[derive(Default, Clone, Copy, PartialEq, Eq, Debug, strum::Display, strum::EnumString)]
