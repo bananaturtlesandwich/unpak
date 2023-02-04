@@ -62,6 +62,13 @@ impl Entry {
         })
     }
 
+    pub fn from_encoded<R: io::Read>(
+        reader: &mut R,
+        version: super::Version,
+    ) -> Result<Self, super::Error> {
+        todo!()
+    }
+
     pub fn read<R: io::Read + io::Seek, W: io::Write>(
         &self,
         reader: &mut R,
