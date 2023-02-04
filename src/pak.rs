@@ -100,10 +100,7 @@ impl<R: io::Read + io::Seek> Pak<R> {
             for (file, offset) in files {
                 use io::Seek;
                 encoded.seek(io::SeekFrom::Start(offset as u64))?;
-                entries.insert(
-                    file,
-                    super::entry::Entry::from_encoded(&mut reader, version)?,
-                );
+                entries.insert(file, super::entry::Entry::from_encoded(&mut encoded)?);
             }
         }
         for _ in 0..index.read_u32::<LE>()? as usize {
