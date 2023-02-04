@@ -7,7 +7,7 @@ fn load_pak(
     path: String,
     key: Option<String>,
 ) -> Result<unpak::Pak<std::io::BufReader<std::fs::File>>, unpak::Error> {
-    for ver in unpak::Version::iter() {
+    for ver in unpak::Version::iter().rev() {
         match unpak::Pak::new(
             std::io::BufReader::new(std::fs::OpenOptions::new().read(true).open(&path)?),
             ver,
@@ -16,7 +16,7 @@ fn load_pak(
             Ok(pak) => {
                 return Ok(pak);
             }
-            _ => continue,
+            Err(e) => eprintln!("{e}"),
         }
     }
     Err(unpak::Error::Other("version unsupported"))
