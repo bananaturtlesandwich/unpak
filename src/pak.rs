@@ -45,6 +45,7 @@ impl<R: io::Read + io::Seek> Pak<R> {
         let mut index = io::Cursor::new(index);
         let mount_point = index.read_string()?;
         let len = index.read_u32::<LE>()? as usize;
+        // with_capacity doesn't set capacity exactly
         let mut entries = hashbrown::HashMap::with_capacity(len);
         for _ in 0..len {
             entries.insert(
