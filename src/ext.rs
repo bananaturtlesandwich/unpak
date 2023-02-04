@@ -63,7 +63,10 @@ impl<R: std::io::Read> ReadExt for R {
         } else if let Some(pos) = path.find("Plugins") {
             path.drain(0..pos);
         }
-        Ok(format!("/{path}"))
+        Ok(match path.starts_with('/') {
+            true => path,
+            false => format!("/{path}"),
+        })
     }
 
     fn read_len(&mut self, len: usize) -> Result<Vec<u8>, super::Error> {
