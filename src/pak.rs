@@ -31,7 +31,10 @@ impl<R: io::Read + io::Seek> Pak<R> {
                 return Err(super::Error::Encrypted);
             };
             use aes::cipher::{BlockDecrypt, KeyInit};
-            let Ok(decrypter)= aes::Aes256Dec::new_from_slice(hash) else {
+            use base64::Engine;
+            let Ok(decrypter)= aes::Aes256Dec::new_from_slice(
+                &base64::engine::general_purpose::STANDARD.decode(hash)?
+            ) else {
                 return Err(super::Error::Aes)
             };
             for chunk in index.chunks_mut(16) {

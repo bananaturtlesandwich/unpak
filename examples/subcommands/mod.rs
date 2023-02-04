@@ -5,16 +5,13 @@ pub use {list::list, unpack::unpack, version::version};
 
 fn load_pak(
     path: String,
-    key: String,
+    key: Option<String>,
 ) -> Result<unpak::Pak<std::io::BufReader<std::fs::File>>, unpak::Error> {
     for ver in unpak::Version::iter() {
         match unpak::Pak::new(
             std::io::BufReader::new(std::fs::OpenOptions::new().read(true).open(&path)?),
             ver,
-            match key.as_bytes() {
-                &[] => None,
-                key => Some(key),
-            },
+            key.as_deref().map(str::as_bytes),
         ) {
             Ok(pak) => {
                 return Ok(pak);
