@@ -25,18 +25,6 @@ impl<R: io::Read + io::Seek> Pak<R> {
         reader.seek(io::SeekFrom::Start(footer.index_offset))?;
         let mut index = reader.read_len(footer.index_size as usize)?;
         let mut key = None;
-        fn decrypt(key: Option<&aes::Aes256Dec>, bytes: &mut [u8]) -> Result<(), super::Error> {
-            match key {
-                Some(key) => {
-                    use aes::cipher::BlockDecrypt;
-                    for chunk in bytes.chunks_mut(16) {
-                        key.decrypt_block(aes::Block::from_mut_slice(chunk))
-                    }
-                    Ok(())
-                }
-                None => Err(super::Error::Encrypted),
-            }
-        }
         // decrypt index if needed
         if footer.encrypted {
             let Some(hash) = key_hash else {
@@ -50,7 +38,7 @@ impl<R: io::Read + io::Seek> Pak<R> {
                 return Err(super::Error::Aes)
             };
             key = Some(dec);
-            decrypt(key.as_ref(), &mut index)?;
+            super::decrypt(key.as_ref(), &mut index)?;
         }
         let mut index = io::Cursor::new(index);
         let mount_point = index.read_string()?;
@@ -81,7 +69,7 @@ impl<R: io::Read + io::Seek> Pak<R> {
                 reader.seek(io::SeekFrom::Start(offset))?;
                 let mut full_dir = reader.read_len(size as usize)?;
                 if footer.encrypted {
-                    decrypt(key.as_ref(), &mut full_dir)?;
+                    super::decrypt(key.as_ref(), &mut full_dir)?;
                 }
                 let mut full_dir = io::Cursor::new(full_dir);
                 for _ in 0..full_dir.read_u32::<LE>()? {

@@ -64,44 +64,55 @@ impl Entry {
 
     pub fn from_encoded<R: io::Read>(reader: &mut R) -> Result<Self, super::Error> {
         let bitfield = reader.read_u32::<LE>()?;
-        let offset = match bitfield & (1 << 31) != 0 {
-            true => reader.read_u32::<LE>()? as u64,
-            false => reader.read_u64::<LE>()?,
-        };
-        let uncompressed = match bitfield & (1 << 30) != 0 {
-            true => reader.read_u32::<LE>()? as u64,
-            false => reader.read_u64::<LE>()?,
-        };
         let compression = match (bitfield >> 23) & 0x3F {
             0x01 | 0x10 | 0x20 => Compression::Zlib,
             _ => Compression::None,
         };
-        let compressed = match compression != Compression::None {
-            true => match bitfield & (1 << 29) != 0 {
+        let encrypted = (bitfield & (1 << 22)) != 0;
+        // uncompressed
+        if (bitfield & 0x3F) == 0x3F {
+            reader.read_u32::<LE>()?;
+        }
+        let mut flag = |bit: u32| -> Result<u64, super::Error> {
+            Ok(match bitfield & (1 << bit) != 0 {
                 true => reader.read_u32::<LE>()? as u64,
                 false => reader.read_u64::<LE>()?,
-            },
+            })
+        };
+        let offset = flag(31)?;
+        let uncompressed = flag(30)?;
+        let compressed = match compression != Compression::None {
+            true => flag(29)?,
             false => uncompressed,
         };
-        let encrypted = (bitfield & (1 << 22)) != 0;
-        let mut blocks = Vec::with_capacity(((bitfield >> 6) & 0xFFFF) as usize);
+        let block_count: u32 = (bitfield >> 6) & 0xffff;
         // all versions with an encoded record a header size of 53
         let mut start = 53;
         if compression != Compression::None {
-            start += 16 * blocks.capacity() as u64 + 4
+            start += 16 * block_count as u64 + 4
         }
-        for _ in 0..blocks.capacity() {
-            let size = reader.read_u32::<LE>()?;
-            blocks.push(Block {
+        let blocks = match block_count {
+            0 => None,
+            1 if !encrypted => Some(vec![Block {
                 start,
-                end: start + size as u64,
-            });
-            start += match encrypted {
-                true => (size + 15) & !15,
-                false => size,
-            } as u64;
-        }
-        let blocks = Some(blocks);
+                end: start + compressed,
+            }]),
+            block_count => {
+                let mut blocks = Vec::with_capacity(block_count as usize);
+                for _ in 0..block_count {
+                    let size = reader.read_u32::<LE>()?;
+                    blocks.push(Block {
+                        start,
+                        end: start + size as u64,
+                    });
+                    start += match encrypted {
+                        true => (size + 15) & !15,
+                        false => size,
+                    } as u64;
+                }
+                Some(blocks)
+            }
+        };
         Ok(Self {
             offset,
             compressed,
@@ -127,13 +138,7 @@ impl Entry {
             false => self.compressed,
         } as usize)?;
         if self.encrypted {
-            let Some(key) = key else {
-                return Err(super::Error::Encrypted);
-            };
-            use aes::cipher::BlockDecrypt;
-            for block in data.chunks_mut(16) {
-                key.decrypt_block(aes::Block::from_mut_slice(block))
-            }
+            super::decrypt(key, &mut data)?;
             data.truncate(self.compressed as usize);
         }
         macro_rules! decompress {
