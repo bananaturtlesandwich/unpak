@@ -24,15 +24,17 @@ pub enum Version {
     EncryptionKeyUuid,     // include key GUID
     FNameBasedCompression, // compression names included
     FrozenIndex,           // frozen index byte included
+    PathHashIndex,         // index format overhauled
+    Fnv64BugFix,           // *shrug*
 }
 
-// strum shouldn't need to be installed by users
 impl Version {
+    // strum shouldn't need to be installed by users
     pub fn iter() -> VersionIter {
         <Version as strum::IntoEnumIterator>::iter()
     }
 
-    pub fn size(self) -> i64 {
+    pub fn footer_size(self) -> i64 {
         // (magic + version): u32 + (offset + size): u64 + hash: [u8; 20]
         let mut size = 4 + 4 + 8 + 8 + 20;
         if self >= Version::EncryptionKeyUuid {
@@ -66,4 +68,17 @@ pub enum Compression {
     Zlib,
     Gzip,
     Oodle,
+}
+
+fn decrypt(key: Option<&aes::Aes256Dec>, bytes: &mut [u8]) -> Result<(), Error> {
+    match key {
+        Some(key) => {
+            use aes::cipher::BlockDecrypt;
+            for chunk in bytes.chunks_mut(16) {
+                key.decrypt_block(aes::Block::from_mut_slice(chunk))
+            }
+            Ok(())
+        }
+        None => Err(Error::Encrypted),
+    }
 }

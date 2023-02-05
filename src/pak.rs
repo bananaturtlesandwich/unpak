@@ -19,7 +19,7 @@ impl<R: io::Read + io::Seek> Pak<R> {
         use super::ext::ReadExt;
         use byteorder::{ReadBytesExt, LE};
         // read footer to get index, encryption & compression info
-        reader.seek(io::SeekFrom::End(-version.size()))?;
+        reader.seek(io::SeekFrom::End(-version.footer_size()))?;
         let footer = super::footer::Footer::new(&mut reader, version)?;
         // read index to get all the entry info
         reader.seek(io::SeekFrom::Start(footer.index_offset))?;
@@ -30,39 +30,73 @@ impl<R: io::Read + io::Seek> Pak<R> {
             let Some(hash) = key_hash else {
                 return Err(super::Error::Encrypted);
             };
-            use aes::cipher::{BlockDecrypt, KeyInit};
+            use aes::cipher::KeyInit;
             use base64::Engine;
-            let Ok(decrypter)= aes::Aes256Dec::new_from_slice(
+            let Ok(dec)= aes::Aes256Dec::new_from_slice(
                 &base64::engine::general_purpose::STANDARD.decode(hash)?
             ) else {
                 return Err(super::Error::Aes)
             };
-            for chunk in index.chunks_mut(16) {
-                decrypter.decrypt_block(aes::Block::from_mut_slice(chunk))
-            }
-            key = Some(decrypter);
+            key = Some(dec);
+            super::decrypt(key.as_ref(), &mut index)?;
         }
         let mut index = io::Cursor::new(index);
         let mount_point = index.read_string()?;
-        let len = index.read_u32::<LE>()? as usize;
         // with_capacity doesn't set capacity exactly
-        let mut entries = hashbrown::HashMap::with_capacity(len);
-        for _ in 0..len {
-            entries.insert(
-                {
-                    let mut path = index.read_string()?;
-                    if let Some(pos) = path.find("Content") {
-                        path.replace_range(0..pos + 7, "Game");
-                    } else if let Some(pos) = path.find("Config") {
-                        path.drain(0..pos);
-                    } else if let Some(pos) = path.find("Plugins") {
-                        path.drain(0..pos);
+        let mut entries = hashbrown::HashMap::new();
+        if version >= Version::PathHashIndex {
+            // entry count
+            index.read_u32::<LE>()?;
+            // path hash seed
+            index.read_u64::<LE>()?;
+            // path hash
+            if index.read_u32::<LE>()? != 0 {
+                // offset
+                index.read_u64::<LE>()?;
+                // size
+                index.read_u64::<LE>()?;
+                // hash
+                index.read_guid()?;
+                // no need to look at the path hash information
+            }
+            let mut files = Vec::new();
+            // full directory index
+            if index.read_u32::<LE>()? != 0 {
+                let offset = index.read_u64::<LE>()?;
+                let size = index.read_u64::<LE>()?;
+                // hash
+                index.read_guid()?;
+                reader.seek(io::SeekFrom::Start(offset))?;
+                let mut full_dir = reader.read_len(size as usize)?;
+                if footer.encrypted {
+                    super::decrypt(key.as_ref(), &mut full_dir)?;
+                }
+                let mut full_dir = io::Cursor::new(full_dir);
+                for _ in 0..full_dir.read_u32::<LE>()? {
+                    let dir = full_dir.read_name()?;
+                    for _ in 0..full_dir.read_u32::<LE>()? {
+                        files.push((
+                            dir.clone() + &full_dir.read_string()?,
+                            full_dir.read_u32::<LE>()?,
+                        ));
                     }
-                    format!("/{path}")
-                },
+                }
+            }
+            let size = index.read_u32::<LE>()? as usize;
+            let mut encoded = io::Cursor::new(index.read_len(size)?);
+            for (file, offset) in files {
+                use io::Seek;
+                encoded.seek(io::SeekFrom::Start(offset as u64))?;
+                entries.insert(file, super::entry::Entry::from_encoded(&mut encoded)?);
+            }
+        }
+        for _ in 0..index.read_u32::<LE>()? as usize {
+            entries.insert(
+                index.read_name()?,
                 super::entry::Entry::new(&mut index, version)?,
             );
         }
+
         Ok(Self {
             version,
             mount_point,
