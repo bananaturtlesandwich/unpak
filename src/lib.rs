@@ -69,3 +69,16 @@ pub enum Compression {
     Gzip,
     Oodle,
 }
+
+fn decrypt(key: Option<&aes::Aes256Dec>, bytes: &mut [u8]) -> Result<(), Error> {
+    match key {
+        Some(key) => {
+            use aes::cipher::BlockDecrypt;
+            for chunk in bytes.chunks_mut(16) {
+                key.decrypt_block(aes::Block::from_mut_slice(chunk))
+            }
+            Ok(())
+        }
+        None => Err(Error::Encrypted),
+    }
+}
