@@ -2,7 +2,7 @@
 ## a no-nonsense unreal pak parser
 - doesn't force files to be extracted
 - only converts entries to bytes when requested
-- supports up to frozen index (4.25) paks (planned support for higher)
+- supports all unreal engine 4 pak versions
 - supports compressed and encrypted paks
 - supports iteration over entries
 ## [click for example code](https://github.com/bananaturtlesandwich/unpak/blob/master/examples/unpak.rs)
