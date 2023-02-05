@@ -5,7 +5,6 @@ use std::str::FromStr;
 #[derive(Debug)]
 pub struct Footer {
     pub encrypted: bool,
-    pub version: Version,
     pub index_offset: u64,
     pub index_size: u64,
     pub compression: Vec<Compression>,
@@ -22,7 +21,11 @@ impl Footer {
         if magic != super::MAGIC {
             return Err(super::Error::Magic(magic));
         }
-        let version = Version::from_repr(reader.read_u32::<LE>()?).unwrap_or(version);
+        // from_repr should always return Some
+        let actual = Version::from_repr(reader.read_u32::<LE>()?).unwrap_or(version);
+        if actual != version {
+            return Err(super::Error::Version { version, actual });
+        }
         let index_offset = reader.read_u64::<LE>()?;
         let index_size = reader.read_u64::<LE>()?;
         // hash
@@ -51,7 +54,6 @@ impl Footer {
         }
         Ok(Self {
             encrypted,
-            version,
             index_offset,
             index_size,
             compression,
