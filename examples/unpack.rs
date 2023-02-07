@@ -1,5 +1,11 @@
-pub fn unpack(path: String, key: Option<String>) -> Result<(), unpak::Error> {
-    let mut pak = super::load_pak(path.clone(), key)?;
+fn main() -> Result<(), unpak::Error> {
+    let mut args = std::env::args();
+    let path = args.nth(1).unwrap_or_default();
+    let key = args.next();
+    let mut pak = unpak::Pak::load(
+        || std::fs::OpenOptions::new().read(true).open(&path).ok(),
+        key,
+    )?;
     for file in pak.files() {
         std::fs::create_dir_all(
             std::path::Path::new(file.trim_start_matches('/'))
@@ -14,5 +20,6 @@ pub fn unpack(path: String, key: Option<String>) -> Result<(), unpak::Error> {
             Err(e) => eprintln!("{e}"),
         }
     }
+    std::io::stdin().read_line(&mut String::new())?;
     Ok(())
 }
