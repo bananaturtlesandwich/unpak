@@ -106,6 +106,21 @@ impl<R: io::Read + io::Seek> Pak<R> {
         })
     }
 
+    pub fn load(
+        get_reader: impl Fn() -> Option<R>,
+        key: Option<String>,
+    ) -> Result<Pak<R>, super::Error> {
+        let key = key.as_deref().map(str::as_bytes);
+        for ver in Version::iter().rev() {
+            if let Some(reader) = get_reader() {
+                if let Ok(pak) = Pak::new(reader, ver, key) {
+                    return Ok(pak);
+                }
+            }
+        }
+        Err(super::Error::Parse)
+    }
+
     pub fn version(&self) -> super::Version {
         self.version
     }

@@ -5,7 +5,7 @@
 - supports all unreal engine 4 pak versions
 - supports compressed and encrypted paks
 - supports iteration over entries
-## [click for example code](https://github.com/bananaturtlesandwich/unpak/blob/master/examples/unpak.rs)
+## [click here for examples](https://github.com/bananaturtlesandwich/unpak/blob/master/examples)
 ## the problem
 looking at the libraries for pak reading, they were never not quite right for what i wanted to do:
 - [rust-u4pak](https://github.com/panzi/rust-u4pak) - excellent support but very limited api

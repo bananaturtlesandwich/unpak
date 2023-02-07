@@ -28,6 +28,8 @@ pub enum Error {
     },
     #[error("pak is encrypted but no key was provided")]
     Encrypted,
+    #[error("pak could not be parsed with any version")]
+    Parse,
     #[error("{0}")]
     Other(&'static str),
 }
