@@ -4,9 +4,9 @@ authors = ["spuds"]
 repository = "https://github.com/bananaturtlesandwich/unpak"
 description = "a no-nonsense unreal pak parsing crate"
 license = "MIT OR Apache-2.0"
-keywords = ["modding", "parsing", "compression"]
+keywords = ["modding", "parsing"]
 categories = ["filesystem", "parser-implementations"]
-version = "0.4.0"
+version = "0.4.1"
 edition = "2021"
 
 [features]
@@ -24,4 +24,8 @@ rayon = { version = "1.6", optional = true }
 
 [[example]]
 name = "unpack"
+required-features = ["rayon"]
+
+[[example]]
+name = "list"
 required-features = ["rayon"]

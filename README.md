@@ -1,4 +1,4 @@
-# unpak ![](https://img.shields.io/crates/v/unpak?style=for-the-badge) ![](https://img.shields.io/docsrs/unpak?style=for-the-badge)
+# unpak [![](https://img.shields.io/crates/v/unpak?style=for-the-badge)](https://crates.io/crates/unpak) [![](https://img.shields.io/docsrs/unpak?style=for-the-badge)](https://docs.rs/unpak)
 ## a no-nonsense unreal pak parser
 - doesn't force files to be extracted
 - only converts entries to bytes when requested
