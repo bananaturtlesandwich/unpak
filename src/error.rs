@@ -1,3 +1,4 @@
+/// the error type used by unpak
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     // dependency errors

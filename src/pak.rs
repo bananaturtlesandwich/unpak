@@ -1,6 +1,7 @@
 use super::Version;
 use std::io;
 
+/// the pak file with all the goodies
 #[derive(Debug)]
 pub struct Pak {
     version: Version,
@@ -10,6 +11,7 @@ pub struct Pak {
 }
 
 impl Pak {
+    /// reads a pak file from the provided reader with a known version and optional key
     pub fn new<R: io::Read + io::Seek>(
         reader: &mut R,
         version: super::Version,
@@ -104,7 +106,8 @@ impl Pak {
         })
     }
 
-    pub fn load<R: io::Read + io::Seek>(
+    /// reads a pak file from the provided reader with a guessed version and optional key
+    pub fn new_any<R: io::Read + io::Seek>(
         reader: &mut R,
         key: Option<&[u8]>,
     ) -> Result<Pak, super::Error> {
@@ -116,6 +119,14 @@ impl Pak {
         Err(super::Error::Parse)
     }
 
+    /// reads a pak file from the provided path with a guessed version and optional key
+    pub fn new_from_file(
+        path: impl AsRef<std::path::Path>,
+        key: Option<&[u8]>,
+    ) -> Result<Pak, super::Error> {
+        Ok(Pak::new_any(&mut std::fs::File::open(path)?, key)?)
+    }
+
     pub fn version(&self) -> super::Version {
         self.version
     }
@@ -124,28 +135,31 @@ impl Pak {
         &self.mount_point
     }
 
+    /// gets the entry as a vector of bytes from the reader corresponding to the pak
     pub fn get<R: io::Read + io::Seek>(
         &self,
+        entry: &str,
         reader: &mut R,
-        path: &str,
     ) -> Result<Vec<u8>, super::Error> {
         let mut data = Vec::new();
-        self.read(path, reader, &mut data)?;
+        self.read(entry, reader, &mut data)?;
         Ok(data)
     }
 
+    /// reads the entry into any writer from the reader corresponding to the pak
     pub fn read<R: io::Read + io::Seek, W: io::Write>(
         &self,
-        path: &str,
+        entry: &str,
         reader: &mut R,
         writer: &mut W,
     ) -> Result<(), super::Error> {
-        match self.entries.get(path) {
+        match self.entries.get(entry) {
             Some(entry) => entry.read(reader, self.version, self.key.as_ref(), writer),
-            None => Err(super::Error::Missing(path.to_string())),
+            None => Err(super::Error::Missing(entry.to_string())),
         }
     }
 
+    /// gets an iterator over the names of each entry
     pub fn entries(&self) -> std::vec::IntoIter<String> {
         self.entries
             .keys()
@@ -154,6 +168,7 @@ impl Pak {
             .into_iter()
     }
 
+    /// gets a parallel iterator over the names of each entry
     #[cfg(feature = "rayon")]
     pub fn par_entries(&self) -> rayon::vec::IntoIter<String> {
         use rayon::prelude::IntoParallelIterator;

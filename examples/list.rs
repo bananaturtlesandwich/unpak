@@ -3,7 +3,7 @@ fn main() -> Result<(), unpak::Error> {
     let path = args.nth(1).unwrap_or_default();
     let key = args.next();
     let key = key.as_deref().map(str::as_bytes);
-    for entry in unpak::Pak::load(
+    for entry in unpak::Pak::new_any(
         &mut std::fs::OpenOptions::new().read(true).open(&path)?,
         key,
     )?
