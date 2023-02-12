@@ -2,17 +2,16 @@ use super::Version;
 use std::io;
 
 #[derive(Debug)]
-pub struct Pak<R: io::Read + io::Seek> {
+pub struct Pak {
     version: Version,
     mount_point: String,
     key: Option<aes::Aes256Dec>,
     entries: hashbrown::HashMap<String, super::entry::Entry>,
-    reader: R,
 }
 
-impl<R: io::Read + io::Seek> Pak<R> {
-    pub fn new(
-        mut reader: R,
+impl Pak {
+    pub fn new<R: io::Read + io::Seek>(
+        reader: &mut R,
         version: super::Version,
         key_hash: Option<&[u8]>,
     ) -> Result<Self, super::Error> {
@@ -20,7 +19,7 @@ impl<R: io::Read + io::Seek> Pak<R> {
         use byteorder::{ReadBytesExt, LE};
         // read footer to get index, encryption & compression info
         reader.seek(io::SeekFrom::End(-version.footer_size()))?;
-        let footer = super::footer::Footer::new(&mut reader, version)?;
+        let footer = super::footer::Footer::new(reader, version)?;
         // read index to get all the entry info
         reader.seek(io::SeekFrom::Start(footer.index_offset))?;
         let mut index = reader.read_len(footer.index_size as usize)?;
@@ -102,19 +101,16 @@ impl<R: io::Read + io::Seek> Pak<R> {
             mount_point,
             key,
             entries,
-            reader,
         })
     }
 
-    pub fn load(
-        get_reader: impl Fn() -> Option<R>,
+    pub fn load<R: io::Read + io::Seek>(
+        reader: &mut R,
         key: Option<&[u8]>,
-    ) -> Result<Pak<R>, super::Error> {
+    ) -> Result<Pak, super::Error> {
         for ver in Version::iter().rev() {
-            if let Some(reader) = get_reader() {
-                if let Ok(pak) = Pak::new(reader, ver, key) {
-                    return Ok(pak);
-                }
+            if let Ok(pak) = Pak::new(reader, ver, key) {
+                return Ok(pak);
             }
         }
         Err(super::Error::Parse)
@@ -128,24 +124,43 @@ impl<R: io::Read + io::Seek> Pak<R> {
         &self.mount_point
     }
 
-    pub fn get(&mut self, path: &str) -> Result<Vec<u8>, super::Error> {
+    pub fn get<R: io::Read + io::Seek>(
+        &self,
+        reader: &mut R,
+        path: &str,
+    ) -> Result<Vec<u8>, super::Error> {
         let mut data = Vec::new();
-        self.read(path, &mut data)?;
+        self.read(path, reader, &mut data)?;
         Ok(data)
     }
 
-    pub fn read<W: io::Write>(&mut self, path: &str, writer: &mut W) -> Result<(), super::Error> {
+    pub fn read<R: io::Read + io::Seek, W: io::Write>(
+        &self,
+        path: &str,
+        reader: &mut R,
+        writer: &mut W,
+    ) -> Result<(), super::Error> {
         match self.entries.get(path) {
-            Some(entry) => entry.read(&mut self.reader, self.version, self.key.as_ref(), writer),
-            None => Err(super::Error::Other("no file found at given path")),
+            Some(entry) => entry.read(reader, self.version, self.key.as_ref(), writer),
+            None => Err(super::Error::Missing(path.to_string())),
         }
     }
 
-    pub fn files(&self) -> std::vec::IntoIter<String> {
+    pub fn entries(&self) -> std::vec::IntoIter<String> {
         self.entries
             .keys()
             .cloned()
             .collect::<Vec<String>>()
             .into_iter()
+    }
+
+    #[cfg(feature = "rayon")]
+    pub fn par_entries(&self) -> rayon::vec::IntoIter<String> {
+        use rayon::prelude::IntoParallelIterator;
+        self.entries
+            .keys()
+            .cloned()
+            .collect::<Vec<String>>()
+            .into_par_iter()
     }
 }

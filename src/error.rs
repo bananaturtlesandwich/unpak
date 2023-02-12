@@ -30,6 +30,14 @@ pub enum Error {
     Encrypted,
     #[error("pak could not be parsed with any version")]
     Parse,
+    #[error("no entry could be found at {0}")]
+    Missing(String),
     #[error("{0}")]
     Other(&'static str),
+}
+
+impl From<&mut std::io::Error> for Error {
+    fn from(value: &mut std::io::Error) -> Self {
+        value.into()
+    }
 }
