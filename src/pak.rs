@@ -120,7 +120,7 @@ impl Pak {
     }
 
     /// reads a pak file from the provided path with a guessed version and optional key
-    pub fn new_from_file(
+    pub fn new_from_path(
         path: impl AsRef<std::path::Path>,
         key: Option<&[u8]>,
     ) -> Result<Pak, super::Error> {
@@ -146,6 +146,17 @@ impl Pak {
         Ok(data)
     }
 
+    /// gets the entry as a vector of bytes from the path corresponding to the pak
+    pub fn get_from_path(
+        &self,
+        entry: &str,
+        reader: impl AsRef<std::path::Path>,
+    ) -> Result<Vec<u8>, super::Error> {
+        let mut data = Vec::new();
+        self.read(entry, &mut std::fs::File::open(reader)?, &mut data)?;
+        Ok(data)
+    }
+
     /// reads the entry into any writer from the reader corresponding to the pak
     pub fn read<R: io::Read + io::Seek, W: io::Write>(
         &self,
@@ -155,6 +166,60 @@ impl Pak {
     ) -> Result<(), super::Error> {
         match self.entries.get(entry) {
             Some(entry) => entry.read(reader, self.version, self.key.as_ref(), writer),
+            None => Err(super::Error::Missing(entry.to_string())),
+        }
+    }
+
+    /// reads the entry into the given file from the reader corresponding to the pak
+    pub fn read_to_file<R: io::Read + io::Seek>(
+        &self,
+        entry: &str,
+        reader: &mut R,
+        writer: impl AsRef<std::path::Path>,
+    ) -> Result<(), super::Error> {
+        match self.entries.get(entry) {
+            Some(entry) => entry.read(
+                reader,
+                self.version,
+                self.key.as_ref(),
+                &mut std::fs::File::create(writer)?,
+            ),
+            None => Err(super::Error::Missing(entry.to_string())),
+        }
+    }
+
+    /// reads the entry into any writer from the path corresponding to the pak
+    pub fn read_from_path<W: io::Write>(
+        &self,
+        entry: &str,
+        reader: impl AsRef<std::path::Path>,
+        writer: &mut W,
+    ) -> Result<(), super::Error> {
+        match self.entries.get(entry) {
+            Some(entry) => entry.read(
+                &mut std::fs::File::open(reader)?,
+                self.version,
+                self.key.as_ref(),
+                writer,
+            ),
+            None => Err(super::Error::Missing(entry.to_string())),
+        }
+    }
+
+    /// reads the entry into the given file from the path corresponding to the pak
+    pub fn read_from_path_to_file(
+        &self,
+        entry: &str,
+        reader: impl AsRef<std::path::Path>,
+        writer: impl AsRef<std::path::Path>,
+    ) -> Result<(), super::Error> {
+        match self.entries.get(entry) {
+            Some(entry) => entry.read(
+                &mut std::fs::File::open(reader)?,
+                self.version,
+                self.key.as_ref(),
+                &mut std::fs::File::create(writer)?,
+            ),
             None => Err(super::Error::Missing(entry.to_string())),
         }
     }
