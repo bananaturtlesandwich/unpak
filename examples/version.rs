@@ -5,7 +5,7 @@ fn main() -> Result<(), unpak::Error> {
     let key = key.as_deref().map(str::as_bytes);
     println!(
         "{}",
-        unpak::Pak::load(
+        unpak::Pak::new_any(
             &mut std::fs::OpenOptions::new().read(true).open(&path)?,
             key
         )?

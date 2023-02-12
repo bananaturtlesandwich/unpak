@@ -6,7 +6,7 @@ fn main() -> Result<(), unpak::Error> {
     let path = args.nth(1).unwrap_or_default();
     let key = args.next();
     let key = key.as_deref().map(str::as_bytes);
-    let pak = unpak::Pak::load(&mut fs::File::open(&path)?, key)?;
+    let pak = unpak::Pak::new_any(&mut fs::File::open(&path)?, key)?;
     pak.par_entries().try_for_each_init(
         || fs::File::open(&path),
         |file, entry| -> Result<(), unpak::Error> {

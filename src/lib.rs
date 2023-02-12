@@ -7,34 +7,48 @@ mod pak;
 
 pub use {error::*, pak::*};
 
+/// the magic used to identify a pak
 pub const MAGIC: u32 = 0x5A6F12E1;
 
+/// the possible versions that a pak file can be
 #[repr(u32)]
 #[derive(
     Clone, Copy, PartialEq, Eq, PartialOrd, Debug, strum::Display, strum::FromRepr, strum::EnumIter,
 )]
 pub enum Version {
-    Unknown,               // unknown (mostly just for padding)
-    Initial,               // initial specification
-    NoTimestamps,          // timestamps removed
-    CompressionEncryption, // compression and encryption support
-    IndexEncryption,       // index encryption support
-    RelativeChunkOffsets,  // offsets are relative to header
-    DeleteRecords,         // record deletion support
-    EncryptionKeyUuid,     // include key GUID
-    FNameBasedCompression, // compression names included
-    FrozenIndex,           // frozen index byte included
-    PathHashIndex,         // index format overhauled
-    Fnv64BugFix,           // *shrug*
+    /// unknown (just for padding)
+    Unknown,
+    /// initial specification
+    Initial,
+    /// timestamps removed    
+    NoTimestamps,
+    /// compression and encryption support
+    CompressionEncryption,
+    /// index encryption support
+    IndexEncryption,
+    /// offsets now relative to header
+    RelativeChunkOffsets,
+    /// record deletion support
+    DeleteRecords,
+    /// include key UUID
+    EncryptionKeyUuid,
+    /// include compression names
+    FNameBasedCompression,
+    /// include frozen index byte
+    FrozenIndex,
+    /// index format overhauled
+    PathHashIndex,
+    /// idk what this changed
+    Fnv64BugFix,
 }
 
 impl Version {
-    // strum shouldn't need to be installed by users
+    /// gets an iterator over the versions
     pub fn iter() -> VersionIter {
         <Version as strum::IntoEnumIterator>::iter()
     }
 
-    pub fn footer_size(self) -> i64 {
+    fn footer_size(self) -> i64 {
         // (magic + version): u32 + (offset + size): u64 + hash: [u8; 20]
         let mut size = 4 + 4 + 8 + 8 + 20;
         if self >= Version::EncryptionKeyUuid {
@@ -61,6 +75,7 @@ impl Version {
     }
 }
 
+/// the possible compression types
 #[derive(Default, Clone, Copy, PartialEq, Eq, Debug, strum::Display, strum::EnumString)]
 pub enum Compression {
     #[default]
