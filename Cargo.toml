@@ -9,7 +9,8 @@ categories = ["filesystem", "parser-implementations"]
 version = "0.3.2"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[features]
+rayon = ["dep:rayon"]
 
 [dependencies]
 byteorder = "1.4"
@@ -19,3 +20,8 @@ flate2 = "1.0"
 base64 = "0.21"
 hashbrown = "0.13"
 thiserror = "1.0"
+rayon = { version = "1.6", optional = true }
+
+[[example]]
+name = "unpack"
+required-features = ["rayon"]

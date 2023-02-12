@@ -6,7 +6,7 @@ fn main() -> Result<(), unpak::Error> {
     println!(
         "{}",
         unpak::Pak::load(
-            || std::fs::OpenOptions::new().read(true).open(&path).ok(),
+            &mut std::fs::OpenOptions::new().read(true).open(&path)?,
             key
         )?
         .version()
