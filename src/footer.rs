@@ -21,11 +21,8 @@ impl Footer {
         if magic != super::MAGIC {
             return Err(super::Error::Magic(magic));
         }
-        // from_repr will always return Some
-        let actual = Version::from_repr(reader.read_u32::<LE>()?).unwrap_or(version);
-        if actual != version {
-            return Err(super::Error::Version { version, actual });
-        }
+        // from_repr should always return Some - version won't always be the given though
+        let version = Version::from_repr(reader.read_u32::<LE>()?).unwrap_or(version);
         let index_offset = reader.read_u64::<LE>()?;
         let index_size = reader.read_u64::<LE>()?;
         // hash
