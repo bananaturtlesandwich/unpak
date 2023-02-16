@@ -29,7 +29,7 @@ pub enum Error {
     #[error("no entry could be found at {0}")]
     Missing(String),
     #[error("{0}")]
-    Other(&'static str),
+    Other(String),
 }
 
 impl From<&mut std::io::Error> for Error {
