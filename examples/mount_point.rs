@@ -3,7 +3,7 @@ fn main() -> Result<(), unpak::Error> {
     let path = args.nth(1).unwrap_or_default();
     let key = args.next();
     let key = key.as_deref().map(str::as_bytes);
-    println!("{}", unpak::Pak::new_any_from_path(path, key)?.version());
+    println!("{}", unpak::Pak::new_any_from_path(path, key)?.mount_point());
     std::io::stdin().read_line(&mut String::new())?;
     Ok(())
 }
