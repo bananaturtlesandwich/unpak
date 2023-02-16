@@ -106,6 +106,15 @@ impl Pak {
         })
     }
 
+    /// reads a pak file from the provided path with a known version and optional key
+    pub fn new_from_path(
+        path: impl AsRef<std::path::Path>,
+        version: super::Version,
+        key: Option<&[u8]>,
+    ) -> Result<Pak, super::Error> {
+        Ok(Pak::new(&mut std::fs::File::open(path)?, version, key)?)
+    }
+
     /// reads a pak file from the provided reader with a guessed version and optional key
     pub fn new_any<R: io::Read + io::Seek>(
         reader: &mut R,
@@ -120,7 +129,7 @@ impl Pak {
     }
 
     /// reads a pak file from the provided path with a guessed version and optional key
-    pub fn new_from_path(
+    pub fn new_any_from_path(
         path: impl AsRef<std::path::Path>,
         key: Option<&[u8]>,
     ) -> Result<Pak, super::Error> {
