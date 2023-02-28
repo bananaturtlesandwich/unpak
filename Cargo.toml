@@ -6,7 +6,7 @@ description = "a no-nonsense unreal pak parsing crate"
 license = "MIT OR Apache-2.0"
 keywords = ["modding", "parsing"]
 categories = ["filesystem", "parser-implementations"]
-version = "0.4.4"
+version = "0.4.5"
 edition = "2021"
 
 [features]
@@ -17,7 +17,6 @@ byteorder = "1.4"
 strum = { version = "0.24", features = ["derive"] }
 aes = "0.8"
 flate2 = "1.0"
-base64 = "0.21"
 hashbrown = "0.13"
 thiserror = "1.0"
 rayon = { version = "1.6", optional = true }

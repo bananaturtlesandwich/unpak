@@ -32,10 +32,7 @@ impl Pak {
                 return Err(super::Error::Encrypted);
             };
             use aes::cipher::KeyInit;
-            use base64::Engine;
-            let Ok(dec)= aes::Aes256Dec::new_from_slice(
-                &base64::engine::general_purpose::STANDARD.decode(hash)?
-            ) else {
+            let Ok(dec) = aes::Aes256Dec::new_from_slice(hash) else {
                 return Err(super::Error::Aes)
             };
             key = Some(dec);
@@ -112,7 +109,7 @@ impl Pak {
         version: super::Version,
         key: Option<&[u8]>,
     ) -> Result<Pak, super::Error> {
-        Ok(Pak::new(&mut std::fs::File::open(path)?, version, key)?)
+        Pak::new(&mut std::fs::File::open(path)?, version, key)
     }
 
     /// reads a pak file from the provided reader with a guessed version and optional key
@@ -133,7 +130,7 @@ impl Pak {
         path: impl AsRef<std::path::Path>,
         key: Option<&[u8]>,
     ) -> Result<Pak, super::Error> {
-        Ok(Pak::new_any(&mut std::fs::File::open(path)?, key)?)
+        Pak::new_any(&mut std::fs::File::open(path)?, key)
     }
 
     pub fn version(&self) -> super::Version {
