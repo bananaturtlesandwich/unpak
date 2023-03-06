@@ -6,11 +6,8 @@ description = "a no-nonsense unreal pak parsing crate"
 license = "MIT OR Apache-2.0"
 keywords = ["modding", "parsing"]
 categories = ["filesystem", "parser-implementations"]
-version = "0.4.5"
+version = "0.5.0"
 edition = "2021"
-
-[features]
-rayon = ["dep:rayon"]
 
 [dependencies]
 byteorder = "1.4"
@@ -19,12 +16,12 @@ aes = "0.8"
 flate2 = "1.0"
 hashbrown = "0.13"
 thiserror = "1.0"
-rayon = { version = "1.6", optional = true }
+
+[dev-dependencies]
+rayon = "1.7"
 
 [[example]]
 name = "unpack"
-required-features = ["rayon"]
 
 [[example]]
 name = "list"
-required-features = ["rayon"]
