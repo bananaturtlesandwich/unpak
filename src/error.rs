@@ -18,6 +18,8 @@ pub enum Error {
     // feature errors
     #[error("re-enable the encryption feature to read encrypted paks")]
     Encryption,
+    #[error("re-enable the compression feature to read compressed paks")]
+    Compression,
     // crate errors
     #[error("found {0} instead of a boolean")]
     Bool(u8),

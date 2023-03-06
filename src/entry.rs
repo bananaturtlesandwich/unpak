@@ -136,6 +136,7 @@ impl Entry {
         let mut reader = std::fs::File::open(&path)?;
         reader.seek(io::SeekFrom::Start(self.offset))?;
         Entry::new(&mut reader, version)?;
+        #[cfg(feature = "compression")]
         let data_offset = reader.stream_position()?;
         #[allow(unused_mut)]
         let mut data = reader.read_len(match self.encrypted {
@@ -152,7 +153,7 @@ impl Entry {
             #[cfg(not(feature = "encryption"))]
             return Err(super::Error::Encryption);
         }
-
+        #[cfg(feature = "compression")]
         macro_rules! decompress {
             ($decompressor: ty) => {
                 match &self.blocks {
@@ -183,9 +184,14 @@ impl Entry {
         }
         match self.compression {
             Compression::None => buf.write_all(&data)?,
+            #[cfg(feature = "compression")]
             Compression::Zlib => decompress!(flate2::read::ZlibDecoder<&[u8]>),
+            #[cfg(feature = "compression")]
             Compression::Gzip => decompress!(flate2::read::GzDecoder<&[u8]>),
+            #[cfg(feature = "compression")]
             Compression::Oodle => todo!(),
+            #[allow(unreachable_patterns)]
+            _ => return Err(super::Error::Compression),
         }
         buf.flush()?;
         Ok(())
