@@ -12,12 +12,8 @@ pub const MAGIC: u32 = 0x5A6F12E1;
 
 /// the possible versions that a pak file can be
 #[repr(u32)]
-#[derive(
-    Clone, Copy, PartialEq, Eq, PartialOrd, Debug, strum::Display, strum::FromRepr, strum::EnumIter,
-)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Debug, strum::Display, strum::EnumIter)]
 pub enum Version {
-    /// unknown (just for padding)
-    Unknown,
     /// initial specification
     Initial,
     /// timestamps removed    
@@ -34,6 +30,8 @@ pub enum Version {
     EncryptionKeyUuid,
     /// include compression names
     FNameBasedCompression,
+    /// adds another compression name
+    FNameBasedCompression2,
     /// include frozen index byte
     FrozenIndex,
     /// index format overhauled
@@ -46,6 +44,23 @@ impl Version {
     /// gets an iterator over the versions
     pub fn iter() -> VersionIter {
         <Version as strum::IntoEnumIterator>::iter()
+    }
+
+    fn from_repr(byte: u32) -> Self {
+        match byte {
+            1 => Self::Initial,
+            2 => Self::NoTimestamps,
+            3 => Self::CompressionEncryption,
+            4 => Self::IndexEncryption,
+            5 => Self::RelativeChunkOffsets,
+            6 => Self::DeleteRecords,
+            7 => Self::EncryptionKeyUuid,
+            8 => Self::FNameBasedCompression,
+            9 => Self::FrozenIndex,
+            10 => Self::PathHashIndex,
+            11 => Self::Fnv64BugFix,
+            _ => unimplemented!(),
+        }
     }
 
     fn footer_size(self) -> i64 {
@@ -67,7 +82,7 @@ impl Version {
             // compression names: [[u8; 32]; 4]
             size += 32 * 4;
         }
-        if self >= Version::FrozenIndex {
+        if self >= Version::FNameBasedCompression2 {
             // extra compression name: [u8; 32]
             size += 32
         }
