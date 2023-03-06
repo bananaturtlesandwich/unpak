@@ -100,6 +100,7 @@ pub enum Compression {
     Oodle,
 }
 
+#[cfg(feature = "encryption")]
 fn decrypt(key: Option<&aes::Aes256Dec>, bytes: &mut [u8]) -> Result<(), Error> {
     match key {
         Some(key) => {
