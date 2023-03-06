@@ -27,7 +27,10 @@ pub struct Entry {
 }
 
 impl Entry {
-    pub fn new<R: io::Read>(reader: &mut R, version: super::Version) -> Result<Self, super::Error> {
+    pub fn new<R: io::Read + io::Seek>(
+        reader: &mut R,
+        version: super::Version,
+    ) -> Result<Self, super::Error> {
         // since i need the compression flags, i have to store these as variables which is mildly annoying
         let offset = reader.read_u64::<LE>()?;
         let compressed = reader.read_u64::<LE>()?;
@@ -122,15 +125,17 @@ impl Entry {
         })
     }
 
-    pub fn read<R: io::Read + io::Seek, W: io::Write>(
+    pub fn read<W: io::Write>(
         &self,
-        reader: &mut R,
+        path: impl AsRef<std::path::Path>,
         version: super::Version,
         key: Option<&aes::Aes256Dec>,
         buf: &mut W,
     ) -> Result<(), super::Error> {
+        use io::Seek;
+        let mut reader = std::fs::File::open(&path)?;
         reader.seek(io::SeekFrom::Start(self.offset))?;
-        Entry::new(reader, version)?;
+        Entry::new(&mut reader, version)?;
         let data_offset = reader.stream_position()?;
         let mut data = reader.read_len(match self.encrypted {
             // add alignment (aes block size: 16) then zero out alignment bits

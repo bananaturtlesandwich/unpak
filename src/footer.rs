@@ -11,7 +11,7 @@ pub struct Footer {
 }
 
 impl Footer {
-    pub fn new<R: std::io::Read>(reader: &mut R, version: Version) -> Result<Self, super::Error> {
+    pub fn new(reader: &mut std::fs::File, version: Version) -> Result<Self, super::Error> {
         // encryption key uuid
         if version >= Version::EncryptionKeyUuid {
             reader.read_u128::<LE>()?;
