@@ -129,7 +129,7 @@ impl Entry {
         &self,
         path: impl AsRef<std::path::Path>,
         version: super::Version,
-        key: Option<&aes::Aes256Dec>,
+        #[cfg(feature = "encryption")] key: Option<&aes::Aes256Dec>,
         buf: &mut W,
     ) -> Result<(), super::Error> {
         use io::Seek;
@@ -137,15 +137,22 @@ impl Entry {
         reader.seek(io::SeekFrom::Start(self.offset))?;
         Entry::new(&mut reader, version)?;
         let data_offset = reader.stream_position()?;
+        #[allow(unused_mut)]
         let mut data = reader.read_len(match self.encrypted {
             // add alignment (aes block size: 16) then zero out alignment bits
             true => (self.compressed + 15) & !15,
             false => self.compressed,
         } as usize)?;
         if self.encrypted {
-            super::decrypt(key, &mut data)?;
-            data.truncate(self.compressed as usize);
+            #[cfg(feature = "encryption")]
+            {
+                super::decrypt(key, &mut data)?;
+                data.truncate(self.compressed as usize);
+            }
+            #[cfg(not(feature = "encryption"))]
+            return Err(super::Error::Encryption);
         }
+
         macro_rules! decompress {
             ($decompressor: ty) => {
                 match &self.blocks {

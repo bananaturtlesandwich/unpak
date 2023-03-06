@@ -7,6 +7,7 @@ pub struct Pak {
     version: Version,
     path: std::path::PathBuf,
     mount_point: String,
+    #[cfg(feature = "encryption")]
     key: Option<aes::Aes256Dec>,
     entries: hashbrown::HashMap<String, super::entry::Entry>,
 }
@@ -16,7 +17,7 @@ impl Pak {
     pub fn new(
         path: impl AsRef<std::path::Path>,
         version: super::Version,
-        key_hash: Option<&[u8]>,
+        #[cfg(feature = "encryption")] key_hash: Option<&[u8]>,
     ) -> Result<Self, super::Error> {
         use super::ext::ReadExt;
         use byteorder::{ReadBytesExt, LE};
@@ -27,19 +28,26 @@ impl Pak {
         let footer = super::footer::Footer::new(&mut reader, version)?;
         // read index to get all the entry info
         reader.seek(io::SeekFrom::Start(footer.index_offset))?;
+        #[allow(unused_mut)]
         let mut index = reader.read_len(footer.index_size as usize)?;
+        #[cfg(feature = "encryption")]
         let mut key = None;
         // decrypt index if needed
         if footer.encrypted {
-            let Some(hash) = key_hash else {
-                return Err(super::Error::Encrypted);
-            };
-            use aes::cipher::KeyInit;
-            let Ok(dec) = aes::Aes256Dec::new_from_slice(hash) else {
-                return Err(super::Error::Aes)
-            };
-            key = Some(dec);
-            super::decrypt(key.as_ref(), &mut index)?;
+            #[cfg(feature = "encryption")]
+            {
+                let Some(hash) = key_hash else {
+                    return Err(super::Error::Encrypted);
+                };
+                use aes::cipher::KeyInit;
+                let Ok(dec) = aes::Aes256Dec::new_from_slice(hash) else {
+                    return Err(super::Error::Aes)
+                };
+                key = Some(dec);
+                super::decrypt(key.as_ref(), &mut index)?;
+            }
+            #[cfg(not(feature = "encryption"))]
+            return Err(super::Error::Encryption);
         }
         let mut index = io::Cursor::new(index);
         let mount_point = index.read_string()?;
@@ -68,9 +76,13 @@ impl Pak {
                 // hash
                 index.read_guid()?;
                 reader.seek(io::SeekFrom::Start(offset))?;
+                #[allow(unused_mut)]
                 let mut full_dir = reader.read_len(size as usize)?;
                 if footer.encrypted {
+                    #[cfg(feature = "encryption")]
                     super::decrypt(key.as_ref(), &mut full_dir)?;
+                    #[cfg(not(feature = "encryption"))]
+                    return Err(super::Error::Encryption);
                 }
                 let mut full_dir = io::Cursor::new(full_dir);
                 for _ in 0..full_dir.read_u32::<LE>()? {
@@ -101,6 +113,7 @@ impl Pak {
             version,
             path: path.as_ref().to_path_buf(),
             mount_point,
+            #[cfg(feature = "encryption")]
             key,
             entries,
         })
@@ -109,10 +122,15 @@ impl Pak {
     /// reads a pak file with a guessed version
     pub fn new_any(
         path: impl AsRef<std::path::Path>,
-        key: Option<&[u8]>,
+        #[cfg(feature = "encryption")] key: Option<&[u8]>,
     ) -> Result<Pak, super::Error> {
         for ver in Version::iter().rev() {
-            if let Ok(pak) = Pak::new(&path, ver, key) {
+            if let Ok(pak) = Pak::new(
+                &path,
+                ver,
+                #[cfg(feature = "encryption")]
+                key,
+            ) {
                 return Ok(pak);
             }
         }
@@ -130,7 +148,13 @@ impl Pak {
     /// reads the entry into any writer
     pub fn read<W: io::Write>(&self, entry: &str, writer: &mut W) -> Result<(), super::Error> {
         match self.entries.get(entry) {
-            Some(entry) => entry.read(&self.path, self.version, self.key.as_ref(), writer),
+            Some(entry) => entry.read(
+                &self.path,
+                self.version,
+                #[cfg(feature = "encryption")]
+                self.key.as_ref(),
+                writer,
+            ),
             None => Err(super::Error::Missing(entry.to_string())),
         }
     }
@@ -145,6 +169,7 @@ impl Pak {
             Some(entry) => entry.read(
                 &self.path,
                 self.version,
+                #[cfg(feature = "encryption")]
                 self.key.as_ref(),
                 &mut std::fs::File::create(writer)?,
             ),

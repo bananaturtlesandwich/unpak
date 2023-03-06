@@ -15,6 +15,9 @@ pub enum Error {
     Utf16(#[from] std::string::FromUtf16Error),
     #[error("bufwriter dereference: {0}")]
     IntoInner(#[from] std::io::IntoInnerError<std::io::BufWriter<Vec<u8>>>),
+    // feature errors
+    #[error("re-enable the encryption feature to read encrypted paks")]
+    Encryption,
     // crate errors
     #[error("found {0} instead of a boolean")]
     Bool(u8),
