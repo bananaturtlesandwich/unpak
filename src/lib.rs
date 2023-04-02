@@ -46,23 +46,6 @@ impl Version {
         <Version as strum::IntoEnumIterator>::iter()
     }
 
-    fn from_repr(byte: u32) -> Self {
-        match byte {
-            1 => Self::Initial,
-            2 => Self::NoTimestamps,
-            3 => Self::CompressionEncryption,
-            4 => Self::IndexEncryption,
-            5 => Self::RelativeChunkOffsets,
-            6 => Self::DeleteRecords,
-            7 => Self::EncryptionKeyUuid,
-            8 => Self::FNameBasedCompression,
-            9 => Self::FrozenIndex,
-            10 => Self::PathHashIndex,
-            11 => Self::Fnv64BugFix,
-            _ => unimplemented!(),
-        }
-    }
-
     fn footer_size(self) -> i64 {
         // (magic + version): u32 + (offset + size): u64 + hash: [u8; 20]
         let mut size = 4 + 4 + 8 + 8 + 20;

@@ -6,7 +6,7 @@ description = "a no-nonsense unreal pak parsing crate"
 license = "MIT OR Apache-2.0"
 keywords = ["modding", "parsing"]
 categories = ["filesystem", "parser-implementations"]
-version = "0.5.5"
+version = "0.6.0"
 edition = "2021"
 
 # these are for specific use cases e.g a particular game without encrypted paks
@@ -14,6 +14,7 @@ edition = "2021"
 default = ["encryption", "compression"]
 encryption = ["dep:aes"]
 compression = ["dep:flate2"]
+asset-paths = []
 
 [dependencies]
 byteorder = "1.4"

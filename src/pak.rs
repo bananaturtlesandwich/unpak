@@ -163,7 +163,7 @@ impl Pak {
     pub fn read_to_file(
         &self,
         entry: &str,
-        writer: impl AsRef<std::path::Path>,
+        path: impl AsRef<std::path::Path>,
     ) -> Result<(), super::Error> {
         match self.entries.get(entry) {
             Some(entry) => entry.read(
@@ -171,7 +171,7 @@ impl Pak {
                 self.version,
                 #[cfg(feature = "encryption")]
                 self.key.as_ref(),
-                &mut std::fs::File::create(writer)?,
+                &mut std::fs::File::create(path)?,
             ),
             None => Err(super::Error::Missing(entry.to_string())),
         }

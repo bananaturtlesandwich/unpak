@@ -38,7 +38,7 @@ impl<R: std::io::Read> ReadExt for R {
         Ok(buf)
     }
 
-    fn read_string(&mut self) -> Result<String, crate::Error> {
+    fn read_string(&mut self) -> Result<String, super::Error> {
         let mut buf = match self.read_i32::<LE>()? {
             size if size.is_negative() => {
                 let mut buf = Vec::with_capacity(-size as usize);
@@ -54,7 +54,8 @@ impl<R: std::io::Read> ReadExt for R {
         Ok(buf)
     }
 
-    fn read_name(&mut self) -> Result<String, crate::Error> {
+    #[cfg(feature = "asset-paths")]
+    fn read_name(&mut self) -> Result<String, super::Error> {
         let mut path = self.read_string()?;
         if !path.starts_with("Engine") {
             if let Some(pos) = path.find("Content") {
@@ -62,6 +63,11 @@ impl<R: std::io::Read> ReadExt for R {
             }
         }
         Ok(format!("/{}", path.trim_start_matches('/')))
+    }
+
+    #[cfg(not(feature = "asset-paths"))]
+    fn read_name(&mut self) -> Result<String, super::Error> {
+        self.read_string()
     }
 
     fn read_len(&mut self, len: usize) -> Result<Vec<u8>, super::Error> {
