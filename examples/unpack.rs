@@ -1,6 +1,4 @@
-use rayon::iter::ParallelIterator;
 use rayon::prelude::*;
-use std::fs;
 
 fn main() -> Result<(), unpak::Error> {
     let mut args = std::env::args();
@@ -10,8 +8,7 @@ fn main() -> Result<(), unpak::Error> {
     pak.entries()
         .into_par_iter()
         .try_for_each(|entry| -> Result<(), unpak::Error> {
-            // undo the stuff we did with names for asset interoperability
-            fs::create_dir_all(std::path::Path::new(&entry).parent().unwrap())?;
+            std::fs::create_dir_all(std::path::Path::new(&entry).parent().unwrap())?;
             pak.read_to_file(&entry, &entry)?;
             println!("{entry}");
             Ok(())

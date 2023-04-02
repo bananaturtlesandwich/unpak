@@ -6,7 +6,7 @@ description = "a no-nonsense unreal pak parsing crate"
 license = "MIT OR Apache-2.0"
 keywords = ["modding", "parsing"]
 categories = ["filesystem", "parser-implementations"]
-version = "0.6.0"
+version = "0.6.1"
 edition = "2021"
 
 # these are for specific use cases e.g a particular game without encrypted paks
@@ -26,9 +26,3 @@ thiserror = "1.0"
 
 [dev-dependencies]
 rayon = "1.7"
-
-[[example]]
-name = "unpack"
-
-[[example]]
-name = "list"
