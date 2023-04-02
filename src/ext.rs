@@ -59,10 +59,6 @@ impl<R: std::io::Read> ReadExt for R {
         if !path.starts_with("Engine") {
             if let Some(pos) = path.find("Content") {
                 path.replace_range(0..pos + 7, "Game");
-            } else if let Some(pos) = path.find("Config") {
-                path.drain(0..pos);
-            } else if let Some(pos) = path.find("Plugins") {
-                path.drain(0..pos);
             }
         }
         Ok(format!("/{}", path.trim_start_matches('/')))
