@@ -1,0 +1,106 @@
+name: release
+
+permissions:
+  contents: write
+
+# runs whenever a version git tag is created
+on:
+  push:
+    tags:
+      - "*.*.*" # e.g 1.0.1
+
+jobs:
+  draft:
+    runs-on: ubuntu-latest
+    outputs:
+      upload: ${{ steps.create-release.outputs.upload_url }}
+      id: ${{ steps.create-release.outputs.id }}
+    steps:
+      - id: create-release
+        uses: actions/create-release@v1
+        env: 
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          release_name: "unpack"
+          tag_name: ${{ github.ref }}
+          draft: true
+          body: |
+            # This is an example tool to demonstrate the crate's features
+            - unpacks all standard pak versions
+            - supports aes encrypted paks if a key is provided
+            - unpacks files concurrently for maximum speed
+
+            # Usage
+            ## Drag 'n drop
+            - drag the pak file onto the unpack binary
+            - to open an aes encrypted pak use the next method
+
+            ## Command line
+            - use the command in the same folder as the binary
+            - unpack _`path to pak file`_ _`aes key`_
+            - the _`aes key`_ is not needed if the pak is not aes encrypted
+
+  windows:
+    needs: draft
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: build
+        run: cargo build -r --example unpack
+      - name: upload
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.draft.outputs.upload }}
+          asset_path: target/release/examples/unpack.exe
+          asset_name: unpack.exe
+          asset_content_type: application/x-msdownload
+        
+  macos:
+    needs: draft
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: build
+        run: cargo build -r --example unpack
+      - name: upload
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.draft.outputs.upload }}
+          asset_path: target/release/examples/unpack
+          asset_name: unpack-macos
+          asset_content_type: application/octet-stream
+  
+  linux:
+    needs: draft
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: build
+        run: cargo build -r --example unpack
+      - name: upload
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.draft.outputs.upload }}
+          asset_path: target/release/examples/unpack
+          asset_name: unpack-linux
+          asset_content_type: application/octet-stream
+
+  publish:
+    needs:
+      - draft
+      - windows
+      - macos
+      - linux
+    runs-on: ubuntu-latest
+    steps:
+      - uses: eregon/publish-release@v1
+        env:
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+            release_id: ${{ needs.draft.outputs.id }}
