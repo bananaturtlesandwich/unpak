@@ -124,7 +124,7 @@ impl Pak {
         path: impl AsRef<std::path::Path>,
         #[cfg(feature = "encryption")] key: Option<&[u8]>,
     ) -> Result<Pak, super::Error> {
-        for ver in Version::iter() {
+        for ver in Version::iter().rev() {
             if let Ok(pak) = Pak::new(
                 &path,
                 ver,

@@ -31,12 +31,8 @@ pub enum Error {
     Parse,
     #[error("no entry could be found at {0}")]
     Missing(String),
+    #[error("wrong version - try using v{0}")]
+    Version(u32),
     #[error("{0}")]
     Other(String),
-}
-
-impl From<&mut std::io::Error> for Error {
-    fn from(value: &mut std::io::Error) -> Self {
-        value.into()
-    }
 }

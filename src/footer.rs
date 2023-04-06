@@ -1,13 +1,11 @@
-use super::{ext::ReadExt, Compression, Version};
+use super::{ext::ReadExt, Version};
 use byteorder::{ReadBytesExt, LE};
-use std::str::FromStr;
 
 #[derive(Debug)]
 pub struct Footer {
     pub encrypted: bool,
     pub index_offset: u64,
     pub index_size: u64,
-    pub compression: Vec<Compression>,
 }
 
 impl Footer {
@@ -22,38 +20,17 @@ impl Footer {
             return Err(super::Error::Magic(magic));
         }
         // version won't always be the given
-        reader.read_u32::<LE>()?;
+        let pak_ver = reader.read_u32::<LE>()?;
+        if version.as_u32() != pak_ver {
+            return Err(super::Error::Version(pak_ver));
+        }
         let index_offset = reader.read_u64::<LE>()?;
         let index_size = reader.read_u64::<LE>()?;
-        // hash
-        reader.read_guid()?;
-        // frozen
-        if version == Version::FrozenIndex {
-            reader.read_bool()?;
-        }
-        let mut compression = Vec::with_capacity(match version {
-            ver if ver < Version::FNameBasedCompression => 0,
-            Version::FNameBasedCompression => 4,
-            _ => 5,
-        });
-        for _ in 0..compression.capacity() {
-            compression.push(
-                Compression::from_str(
-                    &reader
-                        .read_len(32)?
-                        .iter()
-                        // filter out whitespace and convert to char
-                        .filter_map(|&ch| (ch != 0).then_some(ch as char))
-                        .collect::<String>(),
-                )
-                .unwrap_or_default(),
-            )
-        }
+        // no point to read hash, frozen index or compression names
         Ok(Self {
             encrypted,
             index_offset,
             index_size,
-            compression,
         })
     }
 }

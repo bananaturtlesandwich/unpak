@@ -46,6 +46,23 @@ impl Version {
         <Version as strum::IntoEnumIterator>::iter()
     }
 
+    fn as_u32(self) -> u32 {
+        match self {
+            Version::Initial => 1,
+            Version::NoTimestamps => 2,
+            Version::CompressionEncryption => 3,
+            Version::IndexEncryption => 4,
+            Version::RelativeChunkOffsets => 5,
+            Version::DeleteRecords => 6,
+            Version::EncryptionKeyUuid => 7,
+            Version::FNameBasedCompression => 8,
+            Version::FNameBasedCompression2 => 8,
+            Version::FrozenIndex => 9,
+            Version::PathHashIndex => 10,
+            Version::Fnv64BugFix => 11,
+        }
+    }
+
     fn footer_size(self) -> i64 {
         // (magic + version): u32 + (offset + size): u64 + hash: [u8; 20]
         let mut size = 4 + 4 + 8 + 8 + 20;
