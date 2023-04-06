@@ -1,10 +1,28 @@
 use rayon::prelude::*;
 
-fn main() -> Result<(), unpak::Error> {
+fn main() {
     let mut args = std::env::args();
     let path = args.nth(1).unwrap_or_default();
-    let key = args.next();
-    let pak = unpak::Pak::new_any(path, key.as_deref().map(str::as_bytes))?;
+    let mut key = None;
+    if let Some(hash) = args.next() {
+        match hex::decode(hash) {
+            Ok(bytes) => key = Some(bytes),
+            Err(e) => {
+                eprintln!("hex: {e}");
+                std::io::stdin().read_line(&mut String::new()).unwrap();
+                return;
+            }
+        }
+    }
+    match unpack(&path, key.as_deref()) {
+        Ok(_) => println!("unpacked successfully"),
+        Err(e) => eprintln!("{e}"),
+    }
+    std::io::stdin().read_line(&mut String::new()).unwrap();
+}
+
+fn unpack(path: &str, key: Option<&[u8]>) -> Result<(), unpak::Error> {
+    let pak = unpak::Pak::new_any(path, key)?;
     pak.entries()
         .into_par_iter()
         .try_for_each(|entry| -> Result<(), unpak::Error> {
@@ -13,7 +31,5 @@ fn main() -> Result<(), unpak::Error> {
             println!("{entry}");
             Ok(())
         })?;
-    println!("done!");
-    std::io::stdin().read_line(&mut String::new())?;
     Ok(())
 }

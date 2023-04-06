@@ -90,16 +90,6 @@ impl Version {
     }
 }
 
-/// the possible compression types
-#[derive(Default, Clone, Copy, PartialEq, Eq, Debug, strum::Display, strum::EnumString)]
-pub enum Compression {
-    #[default]
-    None,
-    Zlib,
-    Gzip,
-    Oodle,
-}
-
 #[cfg(feature = "encryption")]
 fn decrypt(key: Option<&aes::Aes256Dec>, bytes: &mut [u8]) -> Result<(), Error> {
     match key {

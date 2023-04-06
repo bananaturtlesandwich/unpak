@@ -62,7 +62,7 @@ impl<R: std::io::Read> ReadExt for R {
                 path.replace_range(0..pos + 7, "Game");
             }
         }
-        Ok(format!("/{}", path.trim_start_matches('/')))
+        Ok("/".to_string() + &path)
     }
 
     #[cfg(not(feature = "asset-paths"))]

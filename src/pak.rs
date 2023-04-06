@@ -125,13 +125,35 @@ impl Pak {
         #[cfg(feature = "encryption")] key: Option<&[u8]>,
     ) -> Result<Pak, super::Error> {
         for ver in Version::iter().rev() {
-            if let Ok(pak) = Pak::new(
+            match Pak::new(
                 &path,
                 ver,
                 #[cfg(feature = "encryption")]
                 key,
             ) {
-                return Ok(pak);
+                Ok(pak) => return Ok(pak),
+                Err(e) => match e {
+                    crate::Error::Io(io) => match io.kind() {
+                        io::ErrorKind::NotFound
+                        | io::ErrorKind::PermissionDenied
+                        | io::ErrorKind::AlreadyExists
+                        | io::ErrorKind::WouldBlock
+                        | io::ErrorKind::InvalidInput
+                        | io::ErrorKind::InvalidData
+                        | io::ErrorKind::TimedOut
+                        | io::ErrorKind::WriteZero
+                        | io::ErrorKind::Interrupted
+                        | io::ErrorKind::Unsupported => return Err(io.into()),
+                        // eof or out of memory would indicate a wrong version
+                        _ => continue,
+                    },
+                    crate::Error::Aes
+                    | crate::Error::IntoInner(_)
+                    | crate::Error::Encryption
+                    | crate::Error::Compression
+                    | crate::Error::Encrypted => return Err(e),
+                    _ => continue,
+                },
             }
         }
         Err(super::Error::Parse)

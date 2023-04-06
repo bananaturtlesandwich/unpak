@@ -1,6 +1,15 @@
-use super::{ext::ReadExt, Compression, Version};
+use super::{ext::ReadExt, Version};
 use byteorder::{ReadBytesExt, LE};
 use std::io;
+
+#[derive(Default, Clone, Copy, PartialEq, Eq, Debug)]
+enum Compression {
+    #[default]
+    None,
+    Zlib,
+    Gzip,
+    Oodle,
+}
 
 #[derive(Debug)]
 struct Block {

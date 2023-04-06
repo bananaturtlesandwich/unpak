@@ -2,8 +2,6 @@
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     // dependency errors
-    #[error("enum conversion: {0}")]
-    Strum(#[from] strum::ParseError),
     #[error("key hash is an incorrect length")]
     Aes,
     // std errors
@@ -25,7 +23,7 @@ pub enum Error {
     Bool(u8),
     #[error("found magic of {0:#x} instead of {:#x}", super::MAGIC)]
     Magic(u32),
-    #[error("pak is encrypted but no key was provided")]
+    #[error("pak is encrypted but no valid key was provided")]
     Encrypted,
     #[error("pak could not be parsed with any version")]
     Parse,
