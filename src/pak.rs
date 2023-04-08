@@ -206,7 +206,7 @@ impl Pak {
         Ok(data)
     }
 
-    /// gets an the names of all entries
+    /// gets the names of all entries
     pub fn entries(&self) -> Vec<String> {
         self.entries.keys().cloned().collect::<Vec<String>>()
     }
