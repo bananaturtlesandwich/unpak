@@ -1,15 +1,6 @@
-use super::{ext::ReadExt, Version};
+use super::{ext::ReadExt, Compression, Version};
 use byteorder::{ReadBytesExt, LE};
 use std::io;
-
-#[derive(Default, Clone, Copy, PartialEq, Eq, Debug)]
-enum Compression {
-    #[default]
-    None,
-    Zlib,
-    Gzip,
-    Oodle,
-}
 
 #[derive(Debug)]
 struct Block {
@@ -30,7 +21,7 @@ impl Block {
 pub struct Entry {
     offset: u64,
     compressed: u64,
-    compression: Compression,
+    compression: Option<usize>,
     blocks: Option<Vec<Block>>,
     encrypted: bool,
 }
@@ -45,9 +36,12 @@ impl Entry {
         let compressed = reader.read_u64::<LE>()?;
         // uncompressed
         reader.read_u64::<LE>()?;
-        let compression = match reader.read_u32::<LE>()? {
-            0x01 | 0x10 | 0x20 => Compression::Zlib,
-            _ => Compression::None,
+        let compression = match match version == Version::FNameBasedCompression {
+            true => reader.read_u8()? as u32,
+            false => reader.read_u32::<LE>()?,
+        } {
+            0 => None,
+            i => Some(i as usize - 1),
         };
         // timestamp
         if version == Version::Initial {
@@ -55,11 +49,10 @@ impl Entry {
         }
         // hash
         reader.read_guid()?;
-        let blocks =
-            match version >= Version::CompressionEncryption && compression != Compression::None {
-                true => Some(reader.read_array(Block::new)?),
-                false => None,
-            };
+        let blocks = match version >= Version::CompressionEncryption && compression != None {
+            true => Some(reader.read_array(Block::new)?),
+            false => None,
+        };
         let encrypted = version >= Version::CompressionEncryption && reader.read_bool()?;
         // block uncompressed
         if version >= Version::CompressionEncryption {
@@ -77,8 +70,8 @@ impl Entry {
     pub fn from_encoded<R: io::Read>(reader: &mut R) -> Result<Self, super::Error> {
         let bitfield = reader.read_u32::<LE>()?;
         let compression = match (bitfield >> 23) & 0x3F {
-            0x01 | 0x10 | 0x20 => Compression::Zlib,
-            _ => Compression::None,
+            0 => None,
+            i => Some(i as usize - 1),
         };
         let encrypted = (bitfield & (1 << 22)) != 0;
         // uncompressed
@@ -93,15 +86,15 @@ impl Entry {
         };
         let offset = flag(31)?;
         let uncompressed = flag(30)?;
-        let compressed = match compression != Compression::None {
+        let compressed = match compression != None {
             true => flag(29)?,
             false => uncompressed,
         };
         let block_count: u32 = (bitfield >> 6) & 0xffff;
-        // all versions with an encoded record a header size of 53
+        // all versions with an encoded record have a header size of 53
         let mut start = 53;
-        if compression != Compression::None {
-            start += 16 * block_count as u64 + 4
+        if compression != None {
+            start += 4 + 16 * block_count as u64
         }
         let blocks = match block_count {
             0 => None,
@@ -138,6 +131,7 @@ impl Entry {
         &self,
         path: impl AsRef<std::path::Path>,
         version: super::Version,
+        compression: &[super::Compression],
         #[cfg(feature = "encryption")] key: Option<&aes::Aes256Dec>,
         buf: &mut W,
     ) -> Result<(), super::Error> {
@@ -191,14 +185,14 @@ impl Entry {
                 }
             };
         }
-        match self.compression {
-            Compression::None => buf.write_all(&data)?,
+        match self.compression.and_then(|i| compression.get(i)) {
+            None => buf.write_all(&data)?,
             #[cfg(feature = "compression")]
-            Compression::Zlib => decompress!(flate2::read::ZlibDecoder<&[u8]>),
+            Some(Compression::Zlib) => decompress!(flate2::read::ZlibDecoder<&[u8]>),
             #[cfg(feature = "compression")]
-            Compression::Gzip => decompress!(flate2::read::GzDecoder<&[u8]>),
+            Some(Compression::Gzip) => decompress!(flate2::read::GzDecoder<&[u8]>),
             #[cfg(feature = "compression")]
-            Compression::Oodle => todo!(),
+            Some(_) => todo!(),
             #[allow(unreachable_patterns)]
             _ => return Err(super::Error::Compression),
         }

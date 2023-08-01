@@ -1,4 +1,4 @@
-use super::Version;
+use super::{Compression, Version};
 use std::io;
 
 /// the pak file with all the goodies
@@ -7,6 +7,7 @@ pub struct Pak {
     version: Version,
     path: std::path::PathBuf,
     mount_point: String,
+    compression: Vec<Compression>,
     #[cfg(feature = "encryption")]
     key: Option<aes::Aes256Dec>,
     entries: hashbrown::HashMap<String, super::entry::Entry>,
@@ -113,6 +114,7 @@ impl Pak {
             version,
             path: path.as_ref().to_path_buf(),
             mount_point,
+            compression: footer.compression,
             #[cfg(feature = "encryption")]
             key,
             entries,
@@ -173,6 +175,7 @@ impl Pak {
             Some(entry) => entry.read(
                 &self.path,
                 self.version,
+                &self.compression,
                 #[cfg(feature = "encryption")]
                 self.key.as_ref(),
                 writer,
@@ -191,6 +194,7 @@ impl Pak {
             Some(entry) => entry.read(
                 &self.path,
                 self.version,
+                &self.compression,
                 #[cfg(feature = "encryption")]
                 self.key.as_ref(),
                 &mut std::fs::File::create(path)?,

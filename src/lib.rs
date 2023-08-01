@@ -10,6 +10,16 @@ pub use {error::*, pak::*};
 /// the magic used to identify a pak
 pub const MAGIC: u32 = 0x5A6F12E1;
 
+/// different compressions that a pak can use
+#[derive(Default, Clone, Copy, PartialEq, Eq, Debug, strum::EnumString)]
+pub enum Compression {
+    #[default]
+    None,
+    Zlib,
+    Gzip,
+    Oodle,
+}
+
 /// the possible versions that a pak file can be
 #[repr(u32)]
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Debug, strum::Display, strum::EnumIter)]
