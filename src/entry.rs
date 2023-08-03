@@ -49,7 +49,7 @@ impl Entry {
         }
         // hash
         reader.read_guid()?;
-        let blocks = match version >= Version::CompressionEncryption && compression != None {
+        let blocks = match version >= Version::CompressionEncryption && compression.is_some() {
             true => Some(reader.read_array(Block::new)?),
             false => None,
         };
@@ -86,14 +86,14 @@ impl Entry {
         };
         let offset = flag(31)?;
         let uncompressed = flag(30)?;
-        let compressed = match compression != None {
+        let compressed = match compression.is_some() {
             true => flag(29)?,
             false => uncompressed,
         };
         let block_count: u32 = (bitfield >> 6) & 0xffff;
         // all versions with an encoded record have a header size of 53
         let mut start = 53;
-        if compression != None {
+        if compression.is_some() {
             start += 4 + 16 * block_count as u64
         }
         let blocks = match block_count {
@@ -156,45 +156,45 @@ impl Entry {
             #[cfg(not(feature = "encryption"))]
             return Err(super::Error::Encryption);
         }
-        #[cfg(feature = "compression")]
-        macro_rules! decompress {
-            ($decompressor: ty) => {
-                match &self.blocks {
-                    Some(blocks) => {
-                        for block in blocks {
-                            io::copy(
-                                &mut <$decompressor>::new(
-                                    &data[match version >= Version::RelativeChunkOffsets {
-                                        true => {
-                                            (block.start - (data_offset - self.offset)) as usize
-                                                ..(block.end - (data_offset - self.offset)) as usize
-                                        }
-                                        false => {
-                                            (block.start - data_offset) as usize
-                                                ..(block.end - data_offset) as usize
-                                        }
-                                    }],
-                                ),
-                                buf,
-                            )?;
-                        }
-                    }
-                    None => {
-                        io::copy(&mut <$decompressor>::new(data.as_slice()), buf)?;
-                    }
-                }
+        let decompress: fn(&[u8], &mut W) -> Result<(), super::Error> =
+            match self.compression.and_then(|i| compression.get(i)) {
+                None | Some(Compression::None) => |data, buf| Ok(buf.write_all(data)?),
+                #[cfg(feature = "compression")]
+                Some(Compression::Zlib) => |data, buf| {
+                    io::copy(&mut flate2::read::ZlibDecoder::new(data), buf)?;
+                    Ok(())
+                },
+                #[cfg(feature = "compression")]
+                Some(Compression::Gzip) => |data, buf| {
+                    io::copy(&mut flate2::read::GzDecoder::new(data), buf)?;
+                    Ok(())
+                },
+                #[cfg(feature = "compression")]
+                Some(Compression::Oodle) => return Err(super::Error::Oodle),
+                #[allow(unreachable_patterns)]
+                _ => return Err(super::Error::Compression),
             };
-        }
-        match self.compression.and_then(|i| compression.get(i)) {
-            None => buf.write_all(&data)?,
-            #[cfg(feature = "compression")]
-            Some(Compression::Zlib) => decompress!(flate2::read::ZlibDecoder<&[u8]>),
-            #[cfg(feature = "compression")]
-            Some(Compression::Gzip) => decompress!(flate2::read::GzDecoder<&[u8]>),
-            #[cfg(feature = "compression")]
-            Some(_) => todo!(),
-            #[allow(unreachable_patterns)]
-            _ => return Err(super::Error::Compression),
+        match &self.blocks {
+            Some(blocks) => {
+                for block in blocks {
+                    decompress(
+                        &data[match version >= Version::RelativeChunkOffsets {
+                            true => {
+                                (block.start - (data_offset - self.offset)) as usize
+                                    ..(block.end - (data_offset - self.offset)) as usize
+                            }
+                            false => {
+                                (block.start - data_offset) as usize
+                                    ..(block.end - data_offset) as usize
+                            }
+                        }],
+                        buf,
+                    )?
+                }
+            }
+            None => {
+                decompress(data.as_slice(), buf)?;
+            }
         }
         buf.flush()?;
         Ok(())

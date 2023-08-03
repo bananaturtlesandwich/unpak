@@ -47,6 +47,9 @@ pub enum Error {
     /// parsing with wrong version - convert error to string to get correct version
     #[error("wrong version - try using v{0}")]
     Version(u32),
+    /// oodle compression is not currently supported
+    #[error("oodle compression is not currently supported")]
+    Oodle,
     /// any other error if you're too lazy to have a function return custom error
     #[error("{0}")]
     Other(String),
