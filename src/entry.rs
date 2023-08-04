@@ -21,9 +21,11 @@ impl Block {
 pub struct Entry {
     offset: u64,
     compressed: u64,
+    uncompressed: u64,
     compression: Option<usize>,
     blocks: Option<Vec<Block>>,
     encrypted: bool,
+    block_uncompressed: u64,
 }
 
 impl Entry {
@@ -34,8 +36,7 @@ impl Entry {
         // since i need the compression flags, i have to store these as variables which is mildly annoying
         let offset = reader.read_u64::<LE>()?;
         let compressed = reader.read_u64::<LE>()?;
-        // uncompressed
-        reader.read_u64::<LE>()?;
+        let uncompressed = reader.read_u64::<LE>()?;
         let compression = match match version == Version::FNameBasedCompression {
             true => reader.read_u8()? as u32,
             false => reader.read_u32::<LE>()?,
@@ -55,15 +56,18 @@ impl Entry {
         };
         let encrypted = version >= Version::CompressionEncryption && reader.read_bool()?;
         // block uncompressed
-        if version >= Version::CompressionEncryption {
-            reader.read_u32::<LE>()?;
-        }
+        let block_uncompressed = match version >= Version::CompressionEncryption {
+            true => reader.read_u32::<LE>()? as u64,
+            false => uncompressed,
+        };
         Ok(Self {
             offset,
             compressed,
+            uncompressed,
             compression,
             blocks,
             encrypted,
+            block_uncompressed,
         })
     }
 
@@ -74,10 +78,10 @@ impl Entry {
             i => Some(i as usize - 1),
         };
         let encrypted = (bitfield & (1 << 22)) != 0;
-        // uncompressed
-        if (bitfield & 0x3F) == 0x3F {
-            reader.read_u32::<LE>()?;
-        }
+        let block_uncompressed = match (bitfield & 0x3F) == 0x3F {
+            true => reader.read_u32::<LE>()?,
+            false => (bitfield & 0x3F) << 11,
+        } as u64;
         let mut flag = |bit: u32| -> Result<u64, super::Error> {
             Ok(match bitfield & (1 << bit) != 0 {
                 true => reader.read_u32::<LE>()? as u64,
@@ -121,9 +125,11 @@ impl Entry {
         Ok(Self {
             offset,
             compressed,
+            uncompressed,
             compression,
             blocks,
             encrypted,
+            block_uncompressed,
         })
     }
 
@@ -156,47 +162,93 @@ impl Entry {
             #[cfg(not(feature = "encryption"))]
             return Err(super::Error::Encryption);
         }
-        let decompress: fn(&[u8], &mut W) -> Result<(), super::Error> =
-            match self.compression.and_then(|i| compression.get(i)) {
-                None | Some(Compression::None) => |data, buf| Ok(buf.write_all(data)?),
-                #[cfg(feature = "compression")]
-                Some(Compression::Zlib) => |data, buf| {
-                    io::copy(&mut flate2::read::ZlibDecoder::new(data), buf)?;
-                    Ok(())
-                },
-                #[cfg(feature = "compression")]
-                Some(Compression::Gzip) => |data, buf| {
-                    io::copy(&mut flate2::read::GzDecoder::new(data), buf)?;
-                    Ok(())
-                },
-                #[cfg(feature = "compression")]
-                Some(Compression::Oodle) => return Err(super::Error::Oodle),
-                #[allow(unreachable_patterns)]
-                _ => return Err(super::Error::Compression),
-            };
-        match &self.blocks {
-            Some(blocks) => {
+        let blocks = match &self.blocks {
+            Some(blocks) => blocks
+                .iter()
+                .map(|block| match version >= Version::RelativeChunkOffsets {
+                    true => {
+                        (block.start - (data_offset - self.offset)) as usize
+                            ..(block.end - (data_offset - self.offset)) as usize
+                    }
+                    false => {
+                        (block.start - data_offset) as usize..(block.end - data_offset) as usize
+                    }
+                })
+                .collect(),
+            None => vec![0..data.len()],
+        };
+        match self.compression.and_then(|i| compression.get(i)) {
+            None | Some(Compression::None) => {
                 for block in blocks {
-                    decompress(
-                        &data[match version >= Version::RelativeChunkOffsets {
-                            true => {
-                                (block.start - (data_offset - self.offset)) as usize
-                                    ..(block.end - (data_offset - self.offset)) as usize
-                            }
-                            false => {
-                                (block.start - data_offset) as usize
-                                    ..(block.end - data_offset) as usize
-                            }
-                        }],
-                        buf,
-                    )?
+                    buf.write_all(&data[block])?
                 }
             }
-            None => {
-                decompress(data.as_slice(), buf)?;
+            #[cfg(feature = "compression")]
+            Some(Compression::Zlib) => {
+                for block in blocks {
+                    io::copy(&mut flate2::read::ZlibDecoder::new(&data[block]), buf)?;
+                }
             }
+            #[cfg(feature = "compression")]
+            Some(Compression::Gzip) => {
+                for block in blocks {
+                    io::copy(&mut flate2::read::GzDecoder::new(&data[block]), buf)?;
+                }
+            }
+            #[cfg(feature = "oodle")]
+            Some(Compression::Oodle) => {
+                let mut scratch = vec![0; self.block_uncompressed as usize];
+                let state = [0; 0x6C000].as_mut_ptr().cast();
+                unsafe { ffi::LZNA_InitLookup(state) };
+                let block_count = blocks.len();
+                for (i, block) in blocks.into_iter().enumerate() {
+                    let out_len = match block_count == 1 {
+                        true => self.uncompressed,
+                        false => self
+                            .block_uncompressed
+                            .min(self.uncompressed - (i as u64 + 1) * self.block_uncompressed),
+                    } as usize;
+                    let data = &data[block];
+                    unsafe {
+                        ffi::LZNA_DecodeQuantum(
+                            scratch.as_mut_ptr(),
+                            scratch.as_mut_ptr().add(out_len),
+                            scratch.as_mut_ptr(),
+                            data.as_ptr(),
+                            data.as_ptr().add(data.len()),
+                            state,
+                        );
+                    }
+                    buf.write_all(scratch.as_slice())?;
+                }
+            }
+            #[cfg(all(feature = "compression", not(feature = "oodle")))]
+            Some(Compression::Oodle) => return Err(super::Error::Oodle),
+            #[allow(unreachable_patterns)]
+            _ => return Err(super::Error::Compression),
         }
         buf.flush()?;
         Ok(())
+    }
+}
+
+#[cfg(feature = "oodle")]
+#[cxx::bridge]
+mod ffi {
+    // C++ types and signatures exposed to Rust.
+    extern "C++" {
+        include!("unpak/ooz/lzna.h");
+
+        type LznaState;
+
+        unsafe fn LZNA_InitLookup(lut: *mut LznaState);
+        unsafe fn LZNA_DecodeQuantum(
+            dst: *mut u8,
+            dst_end: *mut u8,
+            dst_start: *mut u8,
+            src: *const u8,
+            src_end: *const u8,
+            lut: *mut LznaState,
+        ) -> i32;
     }
 }

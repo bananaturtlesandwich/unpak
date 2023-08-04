@@ -27,6 +27,9 @@ pub enum Error {
     /// re-enable the compression feature to read compressed paks
     #[error("re-enable the compression feature to read compressed paks")]
     Compression,
+    /// enable the oodle feature to read oodle-compressed paks
+    #[error("enable the oodle feature to read oodle-compressed paks")]
+    Oodle,
 
     // internal crate errors
     /// failed to convert to boolean - normally a result of parsing with wrong version
@@ -47,9 +50,6 @@ pub enum Error {
     /// parsing with wrong version - convert error to string to get correct version
     #[error("wrong version - try using v{0}")]
     Version(u32),
-    /// oodle compression is not currently supported
-    #[error("oodle compression is not currently supported")]
-    Oodle,
     /// any other error if you're too lazy to have a function return custom error
     #[error("{0}")]
     Other(String),
