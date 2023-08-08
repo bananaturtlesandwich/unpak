@@ -57,9 +57,10 @@ impl<R: std::io::Read> ReadExt for R {
     #[cfg(feature = "asset-paths")]
     fn read_name(&mut self) -> Result<String, super::Error> {
         let mut path = self.read_string()?;
-        if !path.starts_with("Engine") {
-            if let Some(pos) = path.find("Content") {
-                path.replace_range(0..pos + 7, "Game");
+        if let Some(pos) = path.find("Content/") {
+            match path.starts_with("Engine") {
+                true => path.replace_range(pos..pos + 8, ""),
+                false => path.replace_range(0..pos + 8, "Game/"),
             }
         }
         Ok("/".to_string() + &path)
