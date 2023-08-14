@@ -144,7 +144,6 @@ impl Entry {
         let mut reader = std::fs::File::open(&path)?;
         reader.seek(io::SeekFrom::Start(self.offset))?;
         Entry::new(&mut reader, version)?;
-        #[cfg(feature = "compression")]
         let data_offset = reader.stream_position()?;
         #[allow(unused_mut)]
         let mut data = reader.read_len(match self.encrypted {

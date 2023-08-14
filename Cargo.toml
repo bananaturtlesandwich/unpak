@@ -6,7 +6,7 @@ description = "a no-nonsense unreal pak parsing crate"
 license = "MIT OR Apache-2.0"
 keywords = ["modding", "parsing"]
 categories = ["filesystem", "parser-implementations"]
-version = "1.0.3"
+version = "1.0.4"
 edition = "2021"
 
 [features]
